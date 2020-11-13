@@ -1,0 +1,13 @@
+#ifndef REGISTER_OPCODE
+
+#error "REGISTER_OPCODE() not defined"
+
+#endif
+
+REGISTER_OPCODE(0, NOP, 0, 0);
+REGISTER_OPCODE(1, HALT, 0, 1);
+
+REGISTER_OPCODE(5, ALLOC, 2, 2);
+REGISTER_OPCODE(6, FREE, 1, 1);
+
+
