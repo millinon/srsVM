@@ -3,6 +3,7 @@
 
 #include <errno.h>
 
+#include "constant.h"
 #include "debug.h"
 #include "mmu.h"
 #include "vm.h"
@@ -33,6 +34,10 @@ void srsvm_vm_free(srsvm_vm *vm)
         }
 
         if(vm->module_search_path != NULL){
+            for(size_t i = 0; vm->module_search_path[i] != NULL; i++){
+                free(vm->module_search_path[i]);
+            }
+
             free(vm->module_search_path);
         }
 
@@ -57,6 +62,10 @@ srsvm_vm *srsvm_vm_alloc(srsvm_virtual_memory_desc *memory_layout)
 
         for(int i = 0; i < SRSVM_MODULE_MAX_COUNT; i++){
             vm->modules[i] = NULL;
+        }
+
+        for(int i = 0; i < SRSVM_CONST_MAX_COUNT; i++){
+            vm->constants[i] = NULL;
         }
 
         srsvm_vm_set_module_search_path(vm, NULL);
@@ -98,13 +107,13 @@ bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsv
 
     if(opcode != NULL){
         if(strlen(opcode->name) > 0){
-            dbg_printf("resolved opcode %s/" SWFX, opcode->name, opcode->code);
+            dbg_printf("resolved opcode %s/" SWFX, opcode->name, SW_PARAM(opcode->code));
         } else {
-            dbg_printf("resolved opcode" SWFX, opcode->code);
+            dbg_printf("resolved opcode" SWFX, SW_PARAM(opcode->code));
         }
 
         if(instruction->argc < opcode->argc_min || instruction->argc > opcode->argc_max){
-            dbg_printf("invalid number of arguments %hu, accepted range: [%hu,%hu]", instruction->argc, opcode->argc_min, opcode->argc_max);
+            dbg_printf("invalid number of arguments " SWF ", accepted range: [%hu,%hu]", SW_PARAM(instruction->argc), opcode->argc_min, opcode->argc_max);
 
             thread->fault_str = "Illegal instruction length";
             thread->has_fault = true;
@@ -116,7 +125,7 @@ bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsv
             success = true;
         }
     } else {
-        dbg_printf("failed to locate opcode " SWFX, instruction->opcode);
+        dbg_printf("failed to locate opcode " SWFX, SW_PARAM(instruction->opcode));
 
         thread->fault_str = "Illegal instruction";
         thread->has_fault = true;
@@ -155,12 +164,16 @@ void run_thread(void* arg)
     while(! info->thread->is_halted && ! info->thread->has_fault){
         srsvm_instruction current_instruction;
 
-        if(! load_instruction(info->vm, info->thread->PC, &current_instruction)){
+        if(! srsvm_opcode_load_instruction(info->vm, info->thread->PC, &current_instruction)){
             info->thread->has_fault = true;
         } else {
             info->thread->PC = info->thread->PC + sizeof(current_instruction.opcode) + sizeof(srsvm_word) * current_instruction.argc;
 
             srsvm_vm_execute_instruction(info->vm, info->thread, &current_instruction);
+        }
+
+        if(info->thread->has_fault && info->thread->fault_handler != NULL){
+            info->thread->fault_handler(info->vm, info->thread);
         }
     }
 
@@ -248,6 +261,17 @@ void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path)
     } else {
         vm->module_search_path = NULL;
     }
+
+    if(vm->module_search_path == NULL){
+        dbg_puts("cleared module search path");
+    } else {
+        dbg_puts("set module search path:");
+
+        for(size_t i = 0; vm->module_search_path[i] != NULL; i++){
+            dbg_printf(" [%lu] %s", i, vm->module_search_path[i]);
+        }
+    }
+
 }
 
 static char* find_module(const char* module_name, char** search_path)
@@ -314,10 +338,8 @@ srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
             if(found_slot){
                 mod = srsvm_module_alloc(module_name, file_path, mod_id);
 
-                if(mod != NULL){
-                    if(! srsvm_module_map_insert(vm->module_map, mod)){
-                        goto error_cleanup;
-                    }
+                if(mod != NULL || !srsvm_module_map_insert(vm->module_map, mod)){
+                    goto error_cleanup;
                 }
             } else {
                 goto error_cleanup;
@@ -348,4 +370,117 @@ void srsvm_vm_unload_module(srsvm_vm *vm, srsvm_module *mod)
 
         srsvm_module_free(mod);
     }
+}
+
+srsvm_opcode *srsvm_vm_load_module_opcode(srsvm_vm *vm, srsvm_module *mod, const srsvm_word opcode)
+{
+    srsvm_opcode *op = NULL;
+
+    if(mod != NULL){
+        dbg_printf("attempting to load opcode " SWFX " from module %s", SW_PARAM(opcode), mod->name);
+
+        op = opcode_lookup_by_code(mod->opcode_map, opcode);
+    }
+
+    return op;
+}
+
+srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const srsvm_word index)
+{
+    srsvm_register *reg = NULL;
+
+    if(vm->registers[index] == NULL){
+        reg = (vm->registers[index] = srsvm_register_alloc(name, index));
+    }
+
+    return reg;
+}
+
+srsvm_register *srsvm_vm_register_lookup(const srsvm_vm *vm, srsvm_thread *thread, const srsvm_word index)
+{
+    srsvm_register *reg = NULL;
+
+   if(index < SRSVM_REGISTER_MAX_COUNT){
+        reg = vm->registers[index];
+
+        if(reg == NULL){
+            thread->has_fault = true;
+            thread->fault_str = "Unallocated register accessed";
+        }
+   } else {
+        thread->has_fault = true;
+        thread->fault_str = "Invalid register index specified";
+   }
+
+    return reg;
+}
+
+static bool const_slot_in_use(const srsvm_vm *vm, const srsvm_word slot_num)
+{
+    return slot_num < SRSVM_CONST_MAX_COUNT && vm->constants[slot_num] != NULL;
+}
+
+#define CONST_ALLOCATOR(type,name,flag) \
+    srsvm_constant_value *srsvm_alloc_const_##name(srsvm_vm *vm, const srsvm_word index, const type value)\
+{ \
+    srsvm_constant_value *c = NULL; \
+    if(index < SRSVM_CONST_MAX_COUNT && !const_slot_in_use(vm, index)){ \
+        c = srsvm_const_alloc(flag); \
+        if(c != NULL){ \
+            vm->constants[index] = c; \
+            c->name = value; \
+        } \
+    } \
+    return c; \
+}
+
+CONST_ALLOCATOR(srsvm_word, word, WORD);
+CONST_ALLOCATOR(srsvm_ptr, ptr, WORD);
+CONST_ALLOCATOR(srsvm_ptr_offset, ptr_offset, PTR_OFFSET);
+CONST_ALLOCATOR(bool, bit, BIT);
+CONST_ALLOCATOR(uint8_t, u8, U8);
+CONST_ALLOCATOR(int8_t, i8, I8);
+CONST_ALLOCATOR(uint16_t, u16, U16);
+CONST_ALLOCATOR(int16_t, i16, I16);
+#if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
+CONST_ALLOCATOR(uint32_t, u32, U32);
+CONST_ALLOCATOR(int32_t, i32, I32);
+CONST_ALLOCATOR(float, f32, F32);
+#endif
+#if WORD_SIZE == 64 || WORD_SIZE == 128
+CONST_ALLOCATOR(uint64_t, u64, U64);
+CONST_ALLOCATOR(int64_t, i64, I64);
+CONST_ALLOCATOR(double, f64, F64);
+#endif
+#if WORD_SIZE == 128
+CONST_ALLOCATOR(unsigned __int128, u128, U128);
+CONST_ALLOCATOR(__int128, i128, I128);
+#endif
+#undef CONST_ALLOCATOR
+    
+srsvm_constant_value *srsvm_vm_alloc_const_str(srsvm_vm *vm, const srsvm_word index, const char* value)\
+{
+    srsvm_constant_value *c = NULL;
+    if(index < SRSVM_CONST_MAX_COUNT && !const_slot_in_use(vm, index)){
+        c = srsvm_const_alloc(STR);
+        if(c != NULL){
+            vm->constants[index] = c;
+            c->str = value;
+            c->str_len = strlen(value);
+        }
+    }
+    return c;
+}
+
+bool srsvm_vm_load_const(srsvm_vm *vm, srsvm_register *dest_reg, const srsvm_word index, const srsvm_word offset)
+{
+    bool success = false;
+
+    if(index < SRSVM_CONST_MAX_COUNT && const_slot_in_use(vm, index)){
+        srsvm_constant_value *c = vm->constants[index];
+
+        success = srsvm_const_load(dest_reg, c, offset);
+    }
+
+    return success;
 }

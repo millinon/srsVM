@@ -196,7 +196,7 @@ bool opcode_map_insert(srsvm_opcode_map *map, srsvm_opcode* opcode)
     return success;
 }
 
-bool load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *instruction)
+bool srsvm_opcode_load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *instruction)
 {
     bool success = false;
 
@@ -205,19 +205,21 @@ bool load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *ins
     instruction->argc = 0;
 
     srsvm_memory_segment *seg = srsvm_mmu_locate(vm->mem_root, addr);
-    if(seg != NULL){
-        if(seg->executable){
-            if(! srsvm_mmu_load(seg, addr, (srsvm_word) sizeof(instruction->opcode), &instruction->opcode)){
+    if(seg != NULL && seg->executable){
+        if(! srsvm_mmu_load(seg, addr, sizeof(instruction->opcode), &instruction->opcode)){
 
-            } else {
-                instruction->argc = OPCODE_ARGC(instruction->opcode);
-                instruction->opcode &= ~OPCODE_ARGC_MASK;
+        } else {
+            instruction->argc = OPCODE_ARGC(instruction->opcode);
+            instruction->opcode &= ~OPCODE_ARGC_MASK;
 
+            if(instruction->argc > 0){
                 if(! srsvm_mmu_load(seg, addr + (srsvm_word) (sizeof(instruction->opcode)), (srsvm_word) (instruction->argc * sizeof(srsvm_word)), &instruction->argv)){
 
                 } else {
                     success = true;
                 }
+            } else {
+                success = true;
             }
         }
     }

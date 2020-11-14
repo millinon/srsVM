@@ -17,7 +17,7 @@ typedef uint16_t srsvm_word;
 typedef uint32_t srsvm_word;
 
 #define SWF "%" PRIu32
-#define SWFX "0x" PRIx32
+#define SWFX "0x%" PRIx32
 
 #define SW_PARAM(w) (w)
 
@@ -26,7 +26,7 @@ typedef uint32_t srsvm_word;
 typedef uint64_t srsvm_word;
 
 #define SWF "%" PRIu64
-#define SWFX "0x" PRIx64
+#define SWFX "0x%" PRIx64
 
 #define SW_PARAM(w) (w)
 
@@ -39,7 +39,7 @@ typedef unsigned __int128 srsvm_word;
 #define SWF "0x" "%" PRIx64 "%" PRIx64
 #define SWFX SWF
 
-#define SW_PARAM(w) ((uint64_t)(w >> 64)),((uint64_t)(w & 0xFFFFFFFFFFFFFFF))
+#define SW_PARAM(w) ((uint64_t)(((srsvm_word) w) >> 64)),((uint64_t)(((srsvm_word) w) & 0xFFFFFFFFFFFFFFFull))
 
 #else
 

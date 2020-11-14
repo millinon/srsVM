@@ -133,11 +133,14 @@ void srsvm_native_module_unload(srsvm_native_module_handle *handle)
 
 typedef bool (*opcode_enumerator)(srsvm_module_opcode_loader, void*);
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 bool srsvm_native_module_load_opcodes(srsvm_native_module_handle *handle, srsvm_module_opcode_loader loader, void* arg)
 {
     bool success = false;
 
-    opcode_enumerator enumerator = dlsym(handle, "enumerate_srsvm_opcodes");
+    opcode_enumerator enumerator = dlsym(handle, "enumerate_srsvm_opcodes_" STR(WORD_SIZE));
 
     if(enumerator != NULL){
         success = enumerator(loader, arg);

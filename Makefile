@@ -1,4 +1,4 @@
-.phony: clean-obj clean-all
+.phony: clean-obj clean
 
 CFLAGS:=-Iinclude -O0 -g -DDEBUG -Wall
 LIBS:=-pthread -ldl
@@ -57,11 +57,11 @@ obj/impl/linux.o: src/impl/linux.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-build_test_%: obj/%/test.o obj/%/opcodes-builtin.o obj/%/vm.o obj/%/module.o obj/%/mmu.o obj/%/memory.o obj/%/opcode.o obj/%/thread.o obj/%/register.o obj/%/impl/linux.o
+build_test_%: obj/%/test.o obj/%/opcodes-builtin.o obj/%/vm.o obj/%/module.o obj/%/mmu.o obj/%/memory.o obj/%/opcode.o obj/%/thread.o obj/%/register.o obj/%/constant.o obj/%/impl/linux.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean-obj:
 	rm -rf obj
 
-clean-all: clean-obj
+clean: clean-obj
 	rm -f test_16 test_32 test_64 test_128

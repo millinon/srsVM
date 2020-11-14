@@ -37,6 +37,8 @@ typedef struct
    srsvm_stack_frame *top;
 } srsvm_call_stack;
 
+typedef void (*srsvm_thread_fault_handler)(srsvm_vm*, srsvm_thread*);
+
 struct srsvm_thread
 {
     srsvm_word id;
@@ -52,6 +54,9 @@ struct srsvm_thread
     bool has_fault;
     const char* fault_str;
 
+    srsvm_thread_fault_handler fault_handler;
+    srsvm_ptr fault_handler_addr;
+
     srsvm_thread_native_handle native_handle;
 };
 
@@ -64,3 +69,5 @@ bool srsvm_pop(srsvm_vm *vm, srsvm_thread *thread);
 bool srsvm_call(srsvm_vm *vm, srsvm_thread *thread, const srsvm_ptr addr);
 bool srsvm_ret(srsvm_vm *vm, srsvm_thread *thread);
 
+void srsvm_thread_set_fault_handler_native(srsvm_thread *thread, srsvm_thread_fault_handler handler);
+void srsvm_thread_set_fault_handler_hosted(srsvm_thread *thread, const srsvm_ptr handler_address);

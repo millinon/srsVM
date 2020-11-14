@@ -37,8 +37,9 @@ typedef unsigned __int128 srsvm_ptr;
 typedef __int128 srsvm_ptr_offset;
 
 #define SRSVM_NULL_PTR 0
-#define SRSVM_MAX_PTR UINT64_MAX
-
+#define SRSVM_MAX_PTR ((\
+            ((unsigned __int128) 0xFFFFFFFFFFFFFFFFull) << 64) | \
+            ((unsigned __int128) 0xFFFFFFFFFFFFFFFFull))
 #endif
 
 struct srsvm_memory_segment

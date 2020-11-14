@@ -12,10 +12,10 @@ typedef struct
 {
     union
     {
+        srsvm_word word;
+        
         srsvm_ptr ptr;
         srsvm_ptr_offset ptr_offset;
-
-        srsvm_word word;
 
         bool bit;
 

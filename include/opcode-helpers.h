@@ -17,12 +17,25 @@ static inline bool register_writable(const srsvm_register *reg)
     if(! register_writable(reg)){ return false; } \
 } while(0)
 
+static inline bool fault_on_not_writable(srsvm_thread *thread, srsvm_register *reg)
+{
+    if(! register_writable(reg)){
+        thread->has_fault = true;
+        thread->fault_str = "Attempt to write to a non-writable register";
+        return true;
+    } else {
+        return false;
+    }
+}
+
 static inline bool set_register_error_bit(srsvm_register *reg, const char* error_str)
 {
     ENSURE_WRITABLE(reg);
 
     reg->error_flag = true;
     reg->error_str = error_str;
+
+    return true;
 }
 
 static inline bool clear_reg(srsvm_register *reg)
@@ -54,6 +67,7 @@ static inline bool clear_reg(srsvm_register *reg)
         ENSURE_WRITABLE(reg); \
         ENSURE_SPACE(type,field); \
         ((type*)&reg->value.field)[offset] = value; \
+        return true; \
     }
 
 #define MEM_LOAD_HELPER(name,type,field) \
@@ -76,7 +90,12 @@ static inline bool clear_reg(srsvm_register *reg)
     MEM_LOAD_HELPER(mem_load_##field , type, field); \
     MEM_STORE_HELPER(mem_store_##field , type, field); 
 
+MK_HELPERS(srsvm_word, word);
+
 MK_HELPERS(srsvm_ptr, ptr);
+MK_HELPERS(srsvm_ptr_offset, ptr_offset);
+
+MK_HELPERS(bool, bit);
 
 #if WORD_SIZE == 128
 MK_HELPERS(unsigned __int128, u128);
@@ -111,11 +130,13 @@ static inline bool load_str(srsvm_register *reg, const char* value, size_t len)
         free(reg->value.str);
     }
 
-    if((reg->value.str = malloc(len * sizeof(char))) == NULL){
+    if((reg->value.str = malloc((len + 1) * sizeof(char))) == NULL){
         reg->value.str = NULL;
         reg->value.str_len = 0;
         return false;
     } else {
+        memset(reg->value.str, 0, (len + 1) * sizeof(char));
+        strncpy(reg->value.str, value, len);
         reg->value.str_len = len;
         return true;
     }
@@ -124,4 +145,9 @@ static inline bool load_str(srsvm_register *reg, const char* value, size_t len)
 static inline bool load_str_len(srsvm_register *reg, const char* value)
 {
     return load_str(reg, value, strlen(value));
+}
+
+static inline srsvm_register* register_lookup(const srsvm_vm *vm, srsvm_thread *thread, const srsvm_word register_id)
+{
+    return srsvm_vm_register_lookup(vm, thread, register_id);
 }

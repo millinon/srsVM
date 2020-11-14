@@ -7,9 +7,9 @@
 srsvm_virtual_memory_desc *srsvm_virtual_memory_layout(srsvm_virtual_memory_desc* list, const srsvm_ptr start_address, const srsvm_word size)
 {
     if(list == NULL){
-        dbg_printf("allocating virtual_memory_layout list, start address: " SWFX ", size: " SWF, start_address, size);
+        dbg_printf("allocating virtual_memory_layout list, start address: " SWFX ", size: " SWF, SW_PARAM(start_address), SW_PARAM(size));
     } else {
-        dbg_printf("appending to virtual_memory_layout list %p, start address: " SWFX ", size: " SWF, list, start_address, size);
+        dbg_printf("appending to virtual_memory_layout list %p, start address: " SWFX ", size: " SWF, list, SW_PARAM(start_address), SW_PARAM(size));
     }
 
     srsvm_virtual_memory_desc * desc;

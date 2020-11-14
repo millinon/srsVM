@@ -35,7 +35,9 @@
 
 #define OPCODE_ARGC_MASK ((srsvm_word) OPCODE_ARGC_BITS << ((sizeof(srsvm_word) - 1) * CHAR_BIT))
 
-#define OPCODE_ARGC(opcode) ((((opcode & OPCODE_ARGC_MASK) >> ((sizeof(srsvm_word) - 1) * CHAR_BIT)) & OPCODE_ARGC_BITS) >> OPCODE_ARGC_BITS_SHIFT)
+#define OPCODE_ARGC(opcode) (((((opcode) & OPCODE_ARGC_MASK) >> ((sizeof(srsvm_word) - 1) * CHAR_BIT)) & OPCODE_ARGC_BITS) >> OPCODE_ARGC_BITS_SHIFT)
+
+#define OPCODE_MK_ARGC(argc) ((((srsvm_word) argc) << OPCODE_ARGC_BITS_SHIFT) << ((sizeof(srsvm_word) - 1) * CHAR_BIT))
 
 #define OPCODE_MAX_NAME_LEN 255
 
@@ -95,4 +97,4 @@ typedef struct
     srsvm_word argc;
 } srsvm_instruction;
 
-bool load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *instruction);
+bool srsvm_opcode_load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *instruction);
