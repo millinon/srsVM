@@ -5,6 +5,8 @@
 #include "impl.h"
 #include "register.h"
 
+#define SRSVM_THREAD_MAX_COUNT (4 * WORD_SIZE)
+
 typedef struct srsvm_spilled_register srsvm_spilled_register;
 
 struct srsvm_spilled_register
@@ -62,4 +64,3 @@ bool srsvm_pop(srsvm_vm *vm, srsvm_thread *thread);
 bool srsvm_call(srsvm_vm *vm, srsvm_thread *thread, const srsvm_ptr addr);
 bool srsvm_ret(srsvm_vm *vm, srsvm_thread *thread);
 
-#define MAX_THREAD_COUNT (4 * WORD_SIZE)

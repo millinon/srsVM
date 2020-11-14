@@ -1,10 +1,17 @@
+#include <dlfcn.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
+#include <libgen.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "impl.h"
 
+#include "module.h"
 #include "thread.h"
 
 bool srsvm_lock_initialize(srsvm_lock *lock)
@@ -108,3 +115,131 @@ void srsvm_sleep(const long ms_timeout)
     } while(remaining_time.tv_sec > 0 || remaining_time.tv_nsec > 0);
 }
 
+bool srsvm_native_module_load(srsvm_native_module_handle *handle, const char* filename)
+{
+    bool success = false;
+
+    *handle = dlopen(filename, RTLD_NOW);
+
+    success = *handle != NULL;
+
+    return success;
+}
+
+void srsvm_native_module_unload(srsvm_native_module_handle *handle)
+{
+    dlclose(*handle);
+}
+
+typedef bool (*opcode_enumerator)(srsvm_module_opcode_loader, void*);
+
+bool srsvm_native_module_load_opcodes(srsvm_native_module_handle *handle, srsvm_module_opcode_loader loader, void* arg)
+{
+    bool success = false;
+
+    opcode_enumerator enumerator = dlsym(handle, "enumerate_srsvm_opcodes");
+
+    if(enumerator != NULL){
+        success = enumerator(loader, arg);
+    }
+
+    return success;
+}
+
+char *srsvm_module_name_to_filename(const char* module_name)
+{
+    size_t name_len = strlen(module_name);
+    size_t ext_len = strlen(SRSVM_MODULE_FILE_EXTENSION);
+
+    char* writable_arg = strdup(module_name);
+    
+    char* path = NULL;
+
+    if(writable_arg != NULL){
+        path = malloc((name_len + ext_len + 1) * sizeof(char));
+        
+        if(path != NULL){
+            memset(path, 0, (name_len + ext_len + 4) * sizeof(char));
+
+            strncpy(path, basename(writable_arg), (name_len + 4));
+            strncat(path, SRSVM_MODULE_FILE_EXTENSION, ext_len);             
+
+            free(writable_arg);
+        } 
+    }
+
+    return path;
+}
+
+char* srsvm_getcwd(void)
+{
+    char *path = NULL;
+
+    if((path = malloc(PATH_MAX * sizeof(char))) != NULL){
+        if(getcwd(path, PATH_MAX) == NULL){
+            free(path);
+            path = NULL;
+        }
+    }
+
+    return path;
+}
+
+bool srsvm_path_is_absolute(const char* path)
+{
+    bool is_absolute = false;
+
+    char* resolved = realpath(path, NULL);
+
+    if(resolved != NULL){
+        if(strcmp(path, resolved) == 0){
+            is_absolute = true;
+        }
+
+        free(resolved);
+    }
+
+    return is_absolute;
+}
+
+bool srsvm_directory_exists(const char* dir_name)
+{
+    bool dir_exists = false;
+
+    struct stat s_buf;
+    if(stat(dir_name, &s_buf) == 0){
+        dir_exists = S_ISDIR(s_buf.st_mode) == 0;
+    }
+
+    return dir_exists;
+}
+
+bool srsvm_file_exists(const char* file_name)
+{
+    bool file_exists = false;
+
+    struct stat s_buf;
+    if(stat(file_name, &s_buf) == 0){
+        file_exists = S_ISREG(s_buf.st_mode) == 0;
+    }
+
+    return file_exists;
+}
+
+char* srsvm_path_combine(const char* path_1, const char* path_2)
+{
+    size_t len_1 = strlen(path_1);
+    size_t len_2 = strlen(path_2);
+
+    char* combined = malloc((len_1 + len_2 + 2) * sizeof(char));
+    
+    if(combined != NULL){
+        memset(combined, 0, (len_1 + len_2 + 2) * sizeof(char));
+
+        strncat(combined, path_1, len_1);
+        strcat(combined, "/");
+        strncat(combined, path_2, len_2);
+    }
+
+    return combined;
+}

@@ -13,7 +13,11 @@ bool srsvm_mmu_segment_contains(const srsvm_memory_segment *segment, const srsvm
 
 bool srsvm_mmu_segment_contains_literal(const srsvm_memory_segment *segment, const srsvm_ptr address, const srsvm_word size)
 {
-    return address >= segment->literal_start && (address + size) < (segment->literal_start + segment->literal_sz);
+    if(segment->literal_sz == 0){
+        return false;
+    } else {
+        return address >= segment->literal_start && (address + size) < (segment->literal_start + segment->literal_sz);
+    }
 }
 
 srsvm_memory_segment* srsvm_mmu_locate(srsvm_memory_segment *root_segment, const srsvm_ptr address)
@@ -24,7 +28,7 @@ srsvm_memory_segment* srsvm_mmu_locate(srsvm_memory_segment *root_segment, const
 
     srsvm_lock_acquire(&root_segment->lock, 0);
 
-    dbg_printf("  segment literal bounds: [" SWFX ", " SWFX ")", root_segment->literal_start, root_segment->literal_sz);
+    dbg_printf("  segment literal bounds: [" SWFX ", " SWFX ")", root_segment->literal_start, root_segment->literal_start + root_segment->literal_sz);
     
     if(srsvm_mmu_segment_contains_literal(root_segment, address, 0)){
         dbg_puts("  literal match");
@@ -300,7 +304,7 @@ static void update_seg_bounds(srsvm_memory_segment *child, srsvm_memory_segment 
         update_seg_bounds(parent, parent->parent);
     }
 
-    qsort(child->children, WORD_SIZE, sizeof(srsvm_memory_segment*), compare_segment_bounds);
+    qsort(&child->children, WORD_SIZE, sizeof(srsvm_memory_segment*), compare_segment_bounds);
 }
 
 static bool insert_segment(srsvm_memory_segment *parent, srsvm_memory_segment *child, const srsvm_ptr suggested_base_address, const bool force_virtual)
@@ -460,12 +464,12 @@ static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segmen
 {
     dbg_printf("allocating memory segment, literal size: " SWF ", virtual_size: " SWF ", requested base address: " SWFX, literal_size, virtual_size, suggested_base_address);
 
-    srsvm_memory_segment *segment;
+    srsvm_memory_segment *segment = NULL;
 
     if(literal_size == 0 && virtual_size == 0){
         dbg_puts("empty segment requested, bailing");
 
-        segment = NULL;
+        goto error_cleanup;
     } else {
         segment = malloc(sizeof(srsvm_memory_segment));
 
@@ -478,12 +482,9 @@ static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segmen
         segment->literal_memory = NULL;
 
         if(! srsvm_lock_initialize(&segment->lock)){
-            free(segment);
-            segment = NULL;
+            goto error_cleanup;
         } else if(literal_size > 0 && (segment->literal_memory = malloc(literal_size * sizeof(char))) == NULL){
-            srsvm_lock_destroy(&segment->lock);
-            free(segment);
-            segment = NULL;
+            goto error_cleanup;
         } else {
             segment->literal_sz = literal_size;
 
@@ -512,6 +513,8 @@ static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segmen
             }
 
             if(parent_segment != NULL){
+                dbg_printf("allocated child segment %p", segment);
+
                 dbg_printf("attempting to insert segment in parent segment %p...", parent_segment);
 
                 lock_all(parent_segment);
@@ -519,17 +522,16 @@ static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segmen
                 if(! insert_segment(parent_segment, segment, suggested_base_address, force_virtual)){
                     dbg_puts("failed to insert segment");
 
-                    srsvm_lock_destroy(&segment->lock);
-                    free(segment->literal_memory);
-                    free(segment);
-                    segment = NULL;
+                    release_all(parent_segment);
+
+                    goto error_cleanup;
                 } else {
                     dbg_puts("segment inserted");
                 }
 
                 release_all(parent_segment);
             } else {
-                dbg_puts("allocated root segment");
+                dbg_printf("allocated root segment: %p", segment);
 
                 segment->parent = NULL;
                 segment->level = 0;
@@ -541,6 +543,15 @@ static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segmen
     }
 
     return segment;
+
+error_cleanup:
+    if(segment != NULL){
+        srsvm_lock_destroy(&segment->lock);
+        if(segment->literal_memory != NULL) free(segment->literal_memory);
+        free(segment);
+    }
+
+    return NULL;
 }
 
 srsvm_memory_segment *srsvm_mmu_alloc_literal(srsvm_memory_segment *parent_segment, const srsvm_word literal_size, const srsvm_ptr suggested_base_address)

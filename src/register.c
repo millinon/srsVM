@@ -28,3 +28,14 @@ srsvm_register *srsvm_register_alloc(const char* name, const srsvm_word index)
 
     return reg;
 }
+
+void srsvm_register_free(srsvm_register *reg)
+{
+    if(reg != NULL){
+        if(reg->value.str != NULL){
+            free(reg->value.str);
+        }
+
+        free(reg);
+    }
+}

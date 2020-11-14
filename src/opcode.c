@@ -24,6 +24,32 @@ srsvm_opcode_map *srsvm_opcode_map_alloc(void)
     return map;
 }
 
+void free_node(srsvm_opcode_map_node *node)
+{
+    if(node != NULL){
+        if(node->code_lchild != NULL){
+            free_node(node->code_lchild);
+        }
+
+        if(node->code_rchild != NULL){
+            free_node(node->code_rchild);
+        }
+
+        free(node);
+    }
+}
+
+void srsvm_opcode_map_free(srsvm_opcode_map *map)
+{
+    if(map != NULL){
+        srsvm_lock_destroy(&map->lock);
+
+        free_node(map->by_code_root);
+
+        free(map);
+    }
+}
+
 static srsvm_opcode_map_node *search_by_name(const srsvm_opcode_map *map, const char* opcode_name)
 {
     srsvm_opcode_map_node *node = map->by_name_root;
@@ -33,7 +59,7 @@ static srsvm_opcode_map_node *search_by_name(const srsvm_opcode_map *map, const 
         cmp_result = strncmp(node->opcode->name, opcode_name, sizeof(node->opcode->name));
         
         if(cmp_result == 0){
-            return node;
+            break;
         } else if(cmp_result < 0){
             node = node->name_lchild;
         } else {
@@ -134,6 +160,8 @@ bool opcode_map_insert(srsvm_opcode_map *map, srsvm_opcode* opcode)
                             } else parent_node = parent_node->name_rchild;
                         }
                     }
+
+                    node->name_parent = parent_node;
                 }
             }
 
@@ -155,6 +183,8 @@ bool opcode_map_insert(srsvm_opcode_map *map, srsvm_opcode* opcode)
                         } else parent_node = parent_node->code_rchild;
                     }
                 }
+
+                node->code_parent = parent_node;
             }
 
             map->count++;

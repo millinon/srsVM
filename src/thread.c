@@ -46,7 +46,7 @@ void srsvm_thread_free(srsvm_vm *vm, srsvm_thread *thread)
         while(spilled != NULL){
             next_spilled = spilled->next;
             free(spilled);
-            spilled = spilled->next;
+            spilled = next_spilled;
         }
 
         next_frame = frame->next;

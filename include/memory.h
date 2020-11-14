@@ -2,10 +2,9 @@
 
 #include <stdbool.h>
 
-#include "word.h"
-
 #include "forward-decls.h"
 
+#include "word.h"
 #include "impl.h"
 
 #if WORD_SIZE == 16

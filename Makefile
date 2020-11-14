@@ -1,7 +1,7 @@
 .phony: clean-obj clean-all
 
-CFLAGS:=-Iinclude -O0 -g -DDEBUG
-LIBS:=-pthread
+CFLAGS:=-Iinclude -O0 -g -DDEBUG -Wall
+LIBS:=-pthread -ldl
 
 all: test_16 test_32 test_64 test_128
 
@@ -57,7 +57,7 @@ obj/impl/linux.o: src/impl/linux.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-build_test_%: obj/%/test.o obj/%/opcodes-builtin.o obj/%/vm.o obj/%/mmu.o obj/%/memory.o obj/%/opcode.o obj/%/thread.o obj/%/impl/linux.o
+build_test_%: obj/%/test.o obj/%/opcodes-builtin.o obj/%/vm.o obj/%/module.o obj/%/mmu.o obj/%/memory.o obj/%/opcode.o obj/%/thread.o obj/%/register.o obj/%/impl/linux.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean-obj:

@@ -3,35 +3,35 @@
 #include <limits.h>
 #include <stdbool.h>
 
-#include "word.h"
-
 #include "forward-decls.h"
+
+#include "impl.h"
+#include "word.h"
+#include "memory.h"
 
 #if WORD_SIZE == 16
 
-#define MAX_INSTRUCTION_ARGS 3
-#define OPCODE_ARGC_BITS 0b11000000
-#define OPCODE_ARGC_BITS_SHIFT 6
+#define OPCODE_ARGC_BITS 0b11100000
+#define OPCODE_ARGC_BITS_SHIFT 5
 
 #elif WORD_SIZE == 32
 
-#define MAX_INSTRUCTION_ARGS 7
 #define OPCODE_ARGC_BITS 0b11100000
 #define OPCODE_ARGC_BITS_SHIFT 5
 
 #elif WORD_SIZE == 64
 
-#define MAX_INSTRUCTION_ARGS 15
 #define OPCODE_ARGC_BITS 0b11110000
 #define OPCODE_ARGC_BITS_SHIFT 4
 
 #elif WORD_SIZE == 128
 
-#define MAX_INSTRUCTION_ARGS 31
 #define OPCODE_ARGC_BITS 0b11111000
 #define OPCODE_ARGC_BITS_SHIFT 3
 
 #endif
+
+#define MAX_INSTRUCTION_ARGS ((srsvm_word)((OPCODE_ARGC_BITS) >> (OPCODE_ARGC_BITS_SHIFT)))
 
 #define OPCODE_ARGC_MASK ((srsvm_word) OPCODE_ARGC_BITS << ((sizeof(srsvm_word) - 1) * CHAR_BIT))
 
@@ -41,7 +41,7 @@
 
 typedef void (srsvm_opcode_func)(srsvm_vm*, srsvm_thread*, const srsvm_word argc, const srsvm_word argv[]);
 
-typedef struct
+struct srsvm_opcode
 {
     srsvm_word code;    
     char name[OPCODE_MAX_NAME_LEN];
@@ -50,7 +50,7 @@ typedef struct
     unsigned short argc_max;
 
     srsvm_opcode_func *func;
-} srsvm_opcode;
+};
 
 typedef struct srsvm_opcode_map_node srsvm_opcode_map_node;
 
@@ -78,6 +78,7 @@ struct srsvm_opcode_map
 };
 
 srsvm_opcode_map *srsvm_opcode_map_alloc(void);
+void srsvm_opcode_map_free(srsvm_opcode_map* map);
 
 bool opcode_name_exists(const srsvm_opcode_map* map, const char* opcode_name);
 bool opcode_code_exists(const srsvm_opcode_map* map, const srsvm_word opcode_code);

@@ -39,7 +39,7 @@ static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, con
 {
     bool success = false;
 
-    if(opcode_lookup_by_name(vm->opcode_map, name) != NULL){
+    if(strlen(name) > 0 && opcode_lookup_by_name(vm->opcode_map, name) != NULL){
 
     } else if(opcode_lookup_by_code(vm->opcode_map, code) != NULL){
 
@@ -52,7 +52,9 @@ static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, con
 
             op->code = code;
             memset(op->name, 0, sizeof(op->name));
-            strncpy(op->name, name, sizeof(op->name));
+            if(strlen(name) > 0){
+                strncpy(op->name, name, sizeof(op->name));
+            }
             op->argc_min = argc_min;
             op->argc_max = argc_max;
             op->func = func;
