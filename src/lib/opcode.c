@@ -1,12 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "debug.h"
-#include "impl.h"
-#include "memory.h"
-#include "mmu.h"
-#include "opcode.h"
-#include "vm.h"
+#include "srsvm/debug.h"
+#include "srsvm/impl.h"
+#include "srsvm/mmu.h"
+#include "srsvm/opcode.h"
+#include "srsvm/vm.h"
 
 srsvm_opcode_map *srsvm_opcode_map_alloc(void)
 {

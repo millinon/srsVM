@@ -1,12 +1,13 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
-#include "forward-decls.h"
+#include "srsvm/forward-decls.h"
 
 #ifdef __unix__
 
-#include "impl/linux.h"
+#include "srsvm/impl/linux.h"
 
 #else
 
@@ -29,6 +30,9 @@ bool srsvm_thread_join(srsvm_thread *thread);
 void srsvm_sleep(const long ms_timeout);
 
 typedef bool (*srsvm_module_opcode_loader)(void*, srsvm_opcode*);
+
+bool srsvm_native_module_supports_word_size(srsvm_native_module_handle *handle, const uint8_t word_size);
+
 bool srsvm_native_module_load(srsvm_native_module_handle* handle, const char* filename);
 void srsvm_native_module_unload(srsvm_native_module_handle* handle);
 bool srsvm_native_module_load_opcodes(srsvm_native_module_handle* handle, srsvm_module_opcode_loader loader, void* arg);
@@ -41,3 +45,7 @@ bool srsvm_directory_exists(const char* dir_name);
 bool srsvm_file_exists(const char* file_name);
 char *srsvm_path_combine(const char* path_1, const char* path_2);
 
+#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+void *srsvm_zlib_deflate(const void* data, size_t *compressed_size, const size_t original_size);
+void *srsvm_zlib_inflate(const void* data, const size_t compressed_size, const size_t original_size);
+#endif

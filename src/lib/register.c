@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "debug.h"
-#include "register.h"
+#include "srsvm/debug.h"
+#include "srsvm/register.h"
 
 srsvm_register *srsvm_register_alloc(const char* name, const srsvm_word index)
 {

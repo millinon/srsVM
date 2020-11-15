@@ -2,10 +2,10 @@
 
 #include <stdbool.h>
 
-#include "forward-decls.h"
+#include "srsvm/forward-decls.h"
 
-#include "word.h"
-#include "impl.h"
+#include "srsvm/impl.h"
+#include "srsvm/word.h"
 
 #if WORD_SIZE == 16
 
@@ -68,17 +68,3 @@ struct srsvm_memory_segment
 
     srsvm_lock lock;
 };
-
-typedef struct srsvm_virtual_memory_desc srsvm_virtual_memory_desc; 
-
-struct srsvm_virtual_memory_desc
-{
-    srsvm_ptr start_address;
-    srsvm_word size;
-
-    srsvm_virtual_memory_desc *next;
-};
-
-srsvm_virtual_memory_desc *srsvm_virtual_memory_layout(srsvm_virtual_memory_desc* last, const srsvm_ptr start_address, const srsvm_word size);
-
-void srsvm_virtual_memory_layout_free(srsvm_virtual_memory_desc* list);

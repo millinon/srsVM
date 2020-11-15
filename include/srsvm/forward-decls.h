@@ -1,3 +1,5 @@
+#pragma once
+
 typedef struct srsvm_vm srsvm_vm;
 
 typedef struct srsvm_opcode_map srsvm_opcode_map;

@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "module.h"
+#include "srsvm/module.h"
+
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
 
 static bool load_opcode(void* arg, srsvm_opcode* opcode)
 {
@@ -33,19 +36,25 @@ srsvm_module *srsvm_module_alloc(const char* name, const char* filename, srsvm_w
         mod->id = id;
 
         if(strlen(name) < SRSVM_MODULE_MAX_NAME_LEN){
-           strncpy(mod->name, name, sizeof(mod->name));
+            strncpy(mod->name, name, sizeof(mod->name));
 
-           if(srsvm_native_module_load(&mod->handle, filename)){
+            if(srsvm_native_module_load(&mod->handle, filename)){
+                if(! srsvm_native_module_supports_word_size(&mod->handle, WORD_SIZE)){
+                    goto error_cleanup;
+                }
+
                 mod->opcode_map = srsvm_opcode_map_alloc();
+
+
 
                 if(mod->opcode_map == NULL){
                     goto error_cleanup;
                 } else if(! srsvm_native_module_load_opcodes(&mod->handle, load_opcode, mod)){
                     goto error_cleanup;
                 }
-           } else {
-               goto error_cleanup;
-           }
+            } else {
+                goto error_cleanup;
+            }
         } else {
             goto error_cleanup;
         }
@@ -54,7 +63,9 @@ srsvm_module *srsvm_module_alloc(const char* name, const char* filename, srsvm_w
     return mod;
 
 error_cleanup:
-    srsvm_module_free(mod);
+    if(mod != NULL){
+        srsvm_module_free(mod);
+    }
 
     return NULL;
 }
@@ -160,7 +171,7 @@ bool srsvm_module_map_insert(srsvm_module_map *map, srsvm_module *module)
             node->mod = module;
             node->lchild = NULL;
             node->rchild = NULL;
-            
+
             node->height = 0;
 
             if(map->root == NULL){
@@ -295,4 +306,100 @@ bool srsvm_module_map_remove(srsvm_module_map *map, const char* module_name)
     }
 
     return success;
+}
+
+char* srsvm_module_find(const char* module_name, const char* prog_cwd, char** search_path)
+{
+    char* module_path = NULL;
+
+    char* mod_filename = srsvm_module_name_to_filename(module_name);
+
+    if(module_name != NULL && mod_filename != NULL){
+        if(search_path != NULL){
+            for(size_t i = 0; search_path[i] != NULL; i++){
+                if(srsvm_directory_exists(search_path[i])){
+                    char *subdir = srsvm_path_combine(search_path[i], "multilib");
+
+                    if(srsvm_directory_exists(subdir)){
+                        module_path = srsvm_path_combine(search_path[i], mod_filename);
+
+                        free(subdir);
+                        if(! srsvm_file_exists(module_path)){
+
+                            free(module_path);
+                            module_path = NULL;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        free(subdir);
+                    }
+
+                    subdir = srsvm_path_combine(search_path[i], STR_HELPER(WORD_SIZE));
+                    if(srsvm_directory_exists(subdir)){
+                        module_path = srsvm_path_combine(search_path[i], mod_filename);
+
+                        free(subdir);
+                        if(! srsvm_file_exists(module_path)){
+
+                            free(module_path);
+                            module_path = NULL;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        free(subdir);
+                    }
+                }
+            }
+        }
+
+        if(module_path == NULL && prog_cwd != NULL){
+            char *lib_subdir = srsvm_path_combine(prog_cwd, "lib");
+
+            char* subdir = srsvm_path_combine(lib_subdir, "multilib");
+
+            if(srsvm_directory_exists(subdir)){
+                module_path = srsvm_path_combine(subdir, mod_filename);
+
+                free(subdir);
+                if(! srsvm_file_exists(module_path)){
+
+                    free(module_path);
+                    module_path = NULL;
+                }
+            } else {
+                free(subdir);
+            }
+
+            if(module_path == NULL){
+                subdir = srsvm_path_combine(lib_subdir, STR(WORD_SIZE));
+                if(srsvm_directory_exists(subdir)){
+                    module_path = srsvm_path_combine(subdir, mod_filename);
+
+                    free(subdir);
+                    if(! srsvm_file_exists(module_path)){
+
+                        free(module_path);
+                        module_path = NULL;
+                    }
+                } else {
+                    free(subdir);
+                }
+            }
+
+            free(lib_subdir);
+
+            if(module_path == NULL && prog_cwd != NULL){
+                module_path = srsvm_path_combine(prog_cwd, mod_filename);
+
+                if(! srsvm_file_exists(module_path)){
+                    free(module_path);
+                    module_path = NULL;
+                }
+            }
+        }
+    }
+
+    return module_path;
 }

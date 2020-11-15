@@ -3,11 +3,10 @@
 #include <limits.h>
 #include <stdbool.h>
 
-#include "forward-decls.h"
-
-#include "impl.h"
-#include "word.h"
-#include "memory.h"
+#include "srsvm/forward-decls.h"
+#include "srsvm/impl.h"
+#include "srsvm/memory.h"
+#include "srsvm/word.h"
 
 #if WORD_SIZE == 16
 
@@ -39,7 +38,7 @@
 
 #define OPCODE_MK_ARGC(argc) ((((srsvm_word) argc) << OPCODE_ARGC_BITS_SHIFT) << ((sizeof(srsvm_word) - 1) * CHAR_BIT))
 
-#define OPCODE_MAX_NAME_LEN 255
+#define OPCODE_MAX_NAME_LEN 256
 
 typedef void (srsvm_opcode_func)(srsvm_vm*, srsvm_thread*, const srsvm_word argc, const srsvm_word argv[]);
 

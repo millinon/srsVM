@@ -2,14 +2,14 @@
 
 #include <stdbool.h>
 
-#include "forward-decls.h"
-
-#include "constant.h"
-#include "memory.h"
-#include "module.h"
-#include "opcode.h"
-#include "register.h"
-#include "thread.h"
+#include "srsvm/constant.h"
+#include "srsvm/forward-decls.h"
+#include "srsvm/memory.h"
+#include "srsvm/module.h"
+#include "srsvm/opcode.h"
+#include "srsvm/program.h" 
+#include "srsvm/register.h"
+#include "srsvm/thread.h"
 
 struct srsvm_vm
 {
@@ -26,10 +26,16 @@ struct srsvm_vm
     char** module_search_path;
 
     srsvm_constant_value *constants[SRSVM_CONST_MAX_COUNT];
+
+    bool has_program_loaded;
+
+    srsvm_thread *main_thread;
 };
 
-srsvm_vm *srsvm_vm_alloc(srsvm_virtual_memory_desc *memory_layout);
+srsvm_vm *srsvm_vm_alloc(void);
 void srsvm_vm_free(srsvm_vm *vm);
+
+bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program);
 
 srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const srsvm_word index);
 srsvm_register *srsvm_vm_register_lookup(const srsvm_vm *vm, srsvm_thread* thread, const srsvm_word index);
@@ -50,7 +56,6 @@ srsvm_opcode *srsvm_vm_load_module_opcode(srsvm_vm *vm, srsvm_module *mod, const
 
 #define CONST_ALLOCATOR(type,name) \
     srsvm_constant_value* srsvm_vm_alloc_const_##name(srsvm_vm *vm, const srsvm_word index, const type value)
-
 CONST_ALLOCATOR(srsvm_word, word);
 CONST_ALLOCATOR(srsvm_ptr, ptr);
 CONST_ALLOCATOR(srsvm_ptr_offset, ptr_offset);

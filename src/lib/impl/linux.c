@@ -9,10 +9,14 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include "impl.h"
+#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+#include <zlib.h>
+#endif
 
-#include "module.h"
-#include "thread.h"
+#include "srsvm/debug.h"
+#include "srsvm/impl.h"
+#include "srsvm/module.h"
+#include "srsvm/thread.h"
 
 bool srsvm_lock_initialize(srsvm_lock *lock)
 {
@@ -140,10 +144,27 @@ bool srsvm_native_module_load_opcodes(srsvm_native_module_handle *handle, srsvm_
 {
     bool success = false;
 
-    opcode_enumerator enumerator = dlsym(handle, "enumerate_srsvm_opcodes_" STR(WORD_SIZE));
+    if(srsvm_native_module_supports_word_size(handle, WORD_SIZE)){
+        opcode_enumerator enumerator = dlsym(handle, "srsvm_enumerate_opcodes_" STR(WORD_SIZE));
 
-    if(enumerator != NULL){
-        success = enumerator(loader, arg);
+        if(enumerator != NULL){
+            success = enumerator(loader, arg);
+        }
+    }
+
+    return success;
+}
+
+typedef bool(*word_size_check)(const uint8_t word_size);
+
+bool srsvm_native_module_supports_word_size(srsvm_native_module_handle *handle, const uint8_t word_size)
+{
+    bool success = false;
+
+    word_size_check check = dlsym(handle, "srsvm_word_size_support");
+
+    if(check != NULL){
+        success = check(word_size);
     }
 
     return success;
@@ -246,3 +267,96 @@ char* srsvm_path_combine(const char* path_1, const char* path_2)
 
     return combined;
 }
+
+#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+void *srsvm_zlib_deflate(const void* data, size_t *compressed_size, const size_t original_size)
+{
+    void *deflated_data = NULL;
+
+    unsigned long source_len = original_size;
+    
+    int min_size = compressBound(source_len);
+
+    if(min_size <= 0){
+        goto error_cleanup;
+    }
+
+    deflated_data = malloc(min_size);
+
+    if(deflated_data != NULL){
+        unsigned long dest_len = min_size;
+
+        int compress_result = compress(deflated_data, &dest_len, data, source_len);
+   
+        switch(compress_result){
+            case Z_OK:
+                break;
+
+            case Z_MEM_ERROR:
+                dbg_puts("ERROR: failed to decompress memory: not enough memory");
+                goto error_cleanup;
+
+            case Z_BUF_ERROR:
+                dbg_puts("ERROR: failed to decompress memory: not enough room in output buffer");
+                goto error_cleanup;
+
+            default:
+                dbg_puts("ERROR: failed to decompress memory: unknown error");
+                goto error_cleanup;
+        }
+
+        *compressed_size = (size_t) dest_len;
+    }
+
+    return deflated_data;
+
+error_cleanup:
+    if(deflated_data != NULL){
+        free(deflated_data);
+    }
+
+    return NULL;
+}
+
+void* srsvm_zlib_inflate(const void* data, const size_t compressed_size, const size_t original_size)
+{
+    void* inflated_data = malloc(original_size);
+
+    if(inflated_data != NULL){
+        unsigned long dest_len = original_size;
+        unsigned long source_len = compressed_size;
+
+        int uncompress_result = uncompress(inflated_data, &dest_len, data, source_len);
+
+        switch(uncompress_result){
+            case Z_OK:
+                break;
+
+            case Z_MEM_ERROR:
+                dbg_puts("ERROR: failed to decompress memory: not enough memory");
+                goto error_cleanup;
+
+            case Z_BUF_ERROR:
+                dbg_puts("ERROR: failed to decompress memory: not enough room in output buffer");
+                goto error_cleanup;
+
+            case Z_DATA_ERROR:
+                dbg_puts("ERROR: failed to decompress memory: data is corrupted");
+                goto error_cleanup;
+
+            default:
+                dbg_puts("ERROR: failed to decompress memory: unknown error");
+                goto error_cleanup;
+        }
+    }
+    
+    return inflated_data;
+
+error_cleanup:
+    if(inflated_data != NULL){
+        free(inflated_data);
+    }
+
+    return NULL;
+}
+#endif

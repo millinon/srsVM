@@ -2,12 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mmu.h"
-#include "opcode.h"
-#include "opcode-helpers.h"
-#include "module.h"
-#include "vm.h"
-
+#include "srsvm/mmu.h"
+#include "srsvm/opcode-helpers.h"
+#include "srsvm/module.h"
+#include "srsvm/vm.h"
 
 void builtin_NOP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
 {
@@ -326,7 +324,7 @@ bool load_builtin_opcodes(srsvm_vm *vm)
     if(! register_opcode(vm,c,#n,a_min,a_max,&builtin_##n)) { success = false; } \
 } while(0)
 
-#include "opcodes-builtin.h"
+#include "srsvm/opcodes-builtin.h"
 
 #undef REGISTER_OPCODE
 

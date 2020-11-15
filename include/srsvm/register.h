@@ -2,8 +2,8 @@
 
 #include <stdbool.h>
 
-#include "memory.h"
-#include "word.h"
+#include "srsvm/memory.h"
+#include "srsvm/word.h"
 
 #define SRSVM_REGISTER_MAX_COUNT (8 * WORD_SIZE)
 #define SRSVM_REGISTER_MAX_NAME_LEN 256

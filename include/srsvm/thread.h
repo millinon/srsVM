@@ -1,9 +1,8 @@
 #pragma once
 
-#include "forward-decls.h"
-
-#include "impl.h"
-#include "register.h"
+#include "srsvm/forward-decls.h"
+#include "srsvm/impl.h"
+#include "srsvm/register.h"
 
 #define SRSVM_THREAD_MAX_COUNT (4 * WORD_SIZE)
 

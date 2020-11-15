@@ -1,8 +1,7 @@
 #pragma once
 
-#include "impl.h"
-
-#include "opcode.h"
+#include "srsvm/impl.h"
+#include "srsvm/opcode.h"
 
 #define SRSVM_MODULE_MAX_COUNT (4 * WORD_SIZE)
 #define SRSVM_MODULE_MAX_NAME_LEN 256
@@ -46,6 +45,8 @@ typedef struct
 
     size_t count;
 } srsvm_module_map;
+
+char* srsvm_module_find(const char* module_name, const char* prog_cwd, char** search_path);
 
 srsvm_module_map *srsvm_module_map_alloc(void);
 void srsvm_module_map_free(srsvm_module_map* map);

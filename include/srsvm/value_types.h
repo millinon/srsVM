@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#include "word.h"
+#include "srsvm/word.h"
 
 typedef enum
 {

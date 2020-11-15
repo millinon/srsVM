@@ -3,10 +3,10 @@
 
 #include <errno.h>
 
-#include "constant.h"
-#include "debug.h"
-#include "mmu.h"
-#include "vm.h"
+#include "srsvm/constant.h"
+#include "srsvm/debug.h"
+#include "srsvm/mmu.h"
+#include "srsvm/vm.h"
 
 void srsvm_vm_free(srsvm_vm *vm)
 {
@@ -45,28 +45,23 @@ void srsvm_vm_free(srsvm_vm *vm)
     }
 }
 
-srsvm_vm *srsvm_vm_alloc(srsvm_virtual_memory_desc *memory_layout)
+srsvm_vm *srsvm_vm_alloc(void)
 {
     srsvm_vm *vm = NULL;
 
     vm = malloc(sizeof(srsvm_vm));
 
     if(vm != NULL){
-        for(int i = 0; i < SRSVM_REGISTER_MAX_COUNT; i++){
-            vm->registers[i] = NULL;
-        }
+        memset(vm->registers, 0, sizeof(vm->registers));
+        memset(vm->threads, 0, sizeof(vm->threads));
+        memset(vm->modules, 0, sizeof(vm->modules));
+        memset(vm->constants, 0, sizeof(vm->constants));
+        
+        vm->main_thread = NULL;
 
-        for(int i = 0; i < SRSVM_THREAD_MAX_COUNT; i++){
-            vm->threads[i] = NULL;
-        }
+        vm->mem_root = NULL;
 
-        for(int i = 0; i < SRSVM_MODULE_MAX_COUNT; i++){
-            vm->modules[i] = NULL;
-        }
-
-        for(int i = 0; i < SRSVM_CONST_MAX_COUNT; i++){
-            vm->constants[i] = NULL;
-        }
+        vm->has_program_loaded = false;
 
         srsvm_vm_set_module_search_path(vm, NULL);
 
@@ -76,18 +71,8 @@ srsvm_vm *srsvm_vm_alloc(srsvm_virtual_memory_desc *memory_layout)
             goto error_cleanup;
         } else if((vm->mem_root = srsvm_mmu_alloc_virtual(NULL, SRSVM_MAX_PTR, 0)) == NULL){
             goto error_cleanup;
-        } else {
-            while(memory_layout != NULL){
-                if(srsvm_mmu_alloc_virtual(vm->mem_root, memory_layout->size, memory_layout->start_address) == NULL){
-                    goto error_cleanup;
-                } else {
-                    memory_layout = memory_layout->next;
-                }
-            }
-
-            if(! load_builtin_opcodes(vm)){
-                goto error_cleanup;
-            }
+        } else if(! load_builtin_opcodes(vm)){
+            goto error_cleanup;
         }
     }
 
@@ -274,55 +259,19 @@ void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path)
 
 }
 
-static char* find_module(const char* module_name, char** search_path)
-{
-    char* module_path = NULL;
-
-    char* mod_filename = srsvm_module_name_to_filename(module_name);
-
-    if(mod_filename != NULL){
-        if(search_path != NULL){
-            for(size_t i = 0; search_path[i] != NULL; i++){
-                if(srsvm_directory_exists(search_path[i])){
-                    module_path = srsvm_path_combine(search_path[i], mod_filename);
-
-                    if(! srsvm_file_exists(module_path)){
-                        free(module_path);
-                        module_path = NULL;
-                    } else break;
-                }
-            }
-        }
-
-        if(module_path == NULL){
-            char* cwd = srsvm_getcwd();
-
-            if(cwd != NULL){
-                module_path = srsvm_path_combine(cwd, mod_filename);
-
-                if(! srsvm_file_exists(module_path)){
-                    free(module_path);
-                    module_path = NULL;
-                }
-
-                free(cwd);
-            }
-        }
-
-        free(mod_filename);
-    }
-
-    return module_path;
-}
-
 srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
 {
     srsvm_module *mod = NULL;
 
+    char* file_path = NULL;
+
     if((mod = srsvm_module_lookup(vm->module_map, module_name)) != NULL){
         mod->ref_count++;
     } else {
-        const char* file_path = find_module(module_name, vm->module_search_path);
+        char* prog_cwd = srsvm_getcwd();
+
+        file_path = srsvm_module_find(module_name, prog_cwd, vm->module_search_path);
+        free(prog_cwd);
 
         if(file_path != NULL){
             bool found_slot = false;
@@ -352,6 +301,9 @@ srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
     return mod;
 
 error_cleanup:
+    if(file_path != NULL){
+        free(file_path);
+    }
     if(mod != NULL){
         srsvm_module_free(mod);
     }
@@ -421,7 +373,7 @@ static bool const_slot_in_use(const srsvm_vm *vm, const srsvm_word slot_num)
 }
 
 #define CONST_ALLOCATOR(type,name,flag) \
-    srsvm_constant_value *srsvm_alloc_const_##name(srsvm_vm *vm, const srsvm_word index, const type value)\
+    srsvm_constant_value *srsvm_vm_alloc_const_##name(srsvm_vm *vm, const srsvm_word index, const type value)\
 { \
     srsvm_constant_value *c = NULL; \
     if(index < SRSVM_CONST_MAX_COUNT && !const_slot_in_use(vm, index)){ \
@@ -483,4 +435,107 @@ bool srsvm_vm_load_const(srsvm_vm *vm, srsvm_register *dest_reg, const srsvm_wor
     }
 
     return success;
+}
+
+bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program)
+{
+    bool success = false;
+
+    if(vm != NULL && program != NULL){
+        if(vm->has_program_loaded){
+            dbg_puts("ERRROR: attempted to load a program in to a VM which already has one loaded");
+        } else {
+            srsvm_register_specification *reg = program->registers;
+
+            for(int i = 0; reg != NULL && i < program->num_registers; i++){
+                if(! srsvm_vm_register_alloc(vm, reg->name, reg->index)){
+                    return false;
+                } else reg = reg->next;
+            }
+
+            srsvm_virtual_memory_specification *vmem = program->virtual_memory;
+
+            for(int i = 0; vmem != NULL && i < program->num_vmem_segments; i++){
+                if(srsvm_mmu_alloc_virtual(vm->mem_root, vmem->size, vmem->start_address) == NULL){
+                    return false;
+                } else vmem = vmem->next;
+            }
+
+            srsvm_literal_memory_specification *lmem = program->literal_memory;
+            
+            for(int i = 0; lmem != NULL && i < program->num_lmem_segments; i++){
+                srsvm_memory_segment *lmem_seg = srsvm_mmu_alloc_literal(vm->mem_root, lmem->size, lmem->start_address);
+
+                if(lmem_seg == NULL){
+                    return false;
+                } else if(! srsvm_mmu_store(vm->mem_root, lmem->start_address, lmem->size, lmem->data)){
+                    return false;
+                } else {
+                    lmem_seg->readable = lmem->readable;
+                    lmem_seg->writable = lmem->writable;
+                    lmem_seg->executable = lmem->executable;
+
+                    lmem_seg->locked = lmem->locked;
+
+                    lmem = lmem->next;
+                }
+            }
+
+            srsvm_constant_specification *c = program->constants;
+            
+            for(int i = 0; c != NULL && i < program->num_constants; i++){
+                srsvm_constant_value *cv = &c->const_val;
+
+                switch(cv->type){
+					#define LOADER(field, type) \
+                        case type: \
+						if(srsvm_vm_alloc_const_##field(vm, c->const_slot, cv->field) == NULL) { \
+							return false; \
+						} \
+						break;
+					
+					LOADER(word, WORD);
+					LOADER(ptr, PTR);
+					LOADER(ptr_offset, PTR_OFFSET);
+					LOADER(bit, BIT);
+					LOADER(u8, U8);
+					LOADER(i8, I8);
+					LOADER(u16, U16);
+					LOADER(i16, I16);
+#if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
+					LOADER(u32, U32);
+					LOADER(i32, I32);
+					LOADER(f32, F32);
+#endif
+#if WORD_SIZE == 64 || WORD_SIZE == 128
+					LOADER(u64, U64);
+					LOADER(i64, I64);
+					LOADER(f64, F64);
+#endif
+#if WORD_SIZE == 128
+					LOADER(u128, U128);
+					LOADER(i128, I128);
+#endif
+					LOADER(str, STR);
+#undef LOADER
+					default:
+						return false;
+				}
+			
+				c = c->next;
+			}
+
+            srsvm_thread *thread = srsvm_vm_alloc_thread(vm, program->metadata->entry_point);
+
+            if(thread == NULL){
+                return false;
+            } else {
+                vm->main_thread = thread;
+            }
+
+			success = true;
+		}
+	}
+
+	return success;
 }

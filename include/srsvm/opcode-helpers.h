@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mmu.h"
-#include "opcode.h"
-#include "register.h"
-#include "vm.h"
+#include "srsvm/opcode.h"
+#include "srsvm/mmu.h"
+#include "srsvm/register.h"
+#include "srsvm/vm.h"
 
 static inline bool register_writable(const srsvm_register *reg)
 {

@@ -1,8 +1,7 @@
 #include <stdlib.h>
 
-#include "constant.h"
-
-#include "opcode-helpers.h"
+#include "srsvm/constant.h"
+#include "srsvm/opcode-helpers.h"
 
 srsvm_constant_value *srsvm_const_alloc(srsvm_value_type type)
 {

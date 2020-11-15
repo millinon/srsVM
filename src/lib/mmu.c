@@ -3,8 +3,8 @@
 
 #include <limits.h>
 
-#include "debug.h"
-#include "memory.h"
+#include "srsvm/debug.h"
+#include "srsvm/memory.h"
 
 bool srsvm_mmu_segment_contains(const srsvm_memory_segment *segment, const srsvm_ptr address, const srsvm_word size)
 {
@@ -16,7 +16,7 @@ bool srsvm_mmu_segment_contains_literal(const srsvm_memory_segment *segment, con
     if(segment->literal_sz == 0){
         return false;
     } else {
-        return address >= segment->literal_start && (address + size) < (segment->literal_start + segment->literal_sz);
+        return address >= segment->literal_start && (address + size) <= (segment->literal_start + segment->literal_sz);
     }
 }
 

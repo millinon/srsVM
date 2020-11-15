@@ -2,10 +2,10 @@
 
 #include <stdbool.h>
 
-#include "word.h"
-#include "memory.h"
-#include "register.h"
-#include "value_types.h"
+#include "srsvm/memory.h"
+#include "srsvm/register.h"
+#include "srsvm/value_types.h"
+#include "srsvm/word.h"
 
 #define SRSVM_CONST_MAX_COUNT (WORD_SIZE * 4)
 
@@ -47,7 +47,7 @@ typedef struct
     };
 
     const char *str;
-    size_t str_len;
+    srsvm_word str_len;
 
     srsvm_value_type type;
 } srsvm_constant_value;

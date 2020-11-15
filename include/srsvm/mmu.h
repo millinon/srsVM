@@ -1,6 +1,6 @@
 #pragma once
 
-#include "memory.h"
+#include "srsvm/memory.h"
 
 bool srsvm_mmu_segment_contains(const srsvm_memory_segment *segment, const srsvm_ptr address, const srsvm_word size);
 bool srsvm_mmu_segment_contains_literal(const srsvm_memory_segment *segment, const srsvm_ptr address, const srsvm_word size);

@@ -1,67 +1,39 @@
 .phony: clean-obj clean
 
-CFLAGS:=-Iinclude -O0 -g -DDEBUG -Wall
-LIBS:=-pthread -ldl
+WORD_SIZE := $(if $(WORD_SIZE),$(WORD_SIZE),16)
+CFLAGS:=-Iinclude -O0 -g -DDEBUG -Wall -DSRSVM_SUPPORT_COMPRESSED_MEMORY -DWORD_SIZE=$(WORD_SIZE)
+LIBS:=-pthread -ldl -lz
 
-all: test_16 test_32 test_64 test_128
+all: test_reader_$(WORD_SIZE) test_writer_$(WORD_SIZE)
 
-test_16: $(eval WORD_SIZE:=16)
-test_16: build_test_16
-	mv build_test_16 test_16
-
-test_32: $(eval WORD_SIZE:=32)
-test_32: build_test_32
-	mv build_test_32 test_32
-
-test_64: $(eval WORD_SIZE:=64)
-test_64: build_test_64
-	mv build_test_64 test_64
-
-test_128: $(eval WORD_SIZE:=128)
-test_128: build_test_128
-	mv build_test_128 test_128
-
-obj/16/test.o: test.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=16 -c -o $@ $<
-
-obj/16/%.o: src/%.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=16 -c -o $@ $<
-
-obj/32/test.o: test.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=32 -c -o $@ $<
-
-obj/32/%.o: src/%.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=32 -c -o $@ $<
-
-obj/64/test.o: test.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=64 -c -o $@ $<
-
-obj/64/%.o: src/%.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=64 -c -o $@ $<
-
-obj/128/test.o: test.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=128 -c -o $@ $<
-
-obj/128/%.o: src/%.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DWORD_SIZE=128 -c -o $@ $<
-
-obj/impl/linux.o: src/impl/linux.c
+obj/$(WORD_SIZE)/%.o: src/lib/%.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-build_test_%: obj/%/test.o obj/%/opcodes-builtin.o obj/%/vm.o obj/%/module.o obj/%/mmu.o obj/%/memory.o obj/%/opcode.o obj/%/thread.o obj/%/register.o obj/%/constant.o obj/%/impl/linux.o
-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+obj/$(WORD_SIZE)/impl/linux.o: src/lib/impl/linux.c
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+test_writer_$(WORD_SIZE): test_writer.c \
+	obj/$(WORD_SIZE)/program.o \
+	obj/$(WORD_SIZE)/impl/linux.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+test_reader_$(WORD_SIZE): test_reader.c \
+	obj/$(WORD_SIZE)/opcodes-builtin.o \
+	obj/$(WORD_SIZE)/vm.o \
+	obj/$(WORD_SIZE)/module.o \
+	obj/$(WORD_SIZE)/mmu.o \
+	obj/$(WORD_SIZE)/opcode.o \
+	obj/$(WORD_SIZE)/register.o \
+	obj/$(WORD_SIZE)/constant.o \
+	obj/$(WORD_SIZE)/program.o \
+	obj/$(WORD_SIZE)/thread.o \
+	obj/$(WORD_SIZE)/impl/linux.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean-obj:
 	rm -rf obj
 
 clean: clean-obj
-	rm -f test_16 test_32 test_64 test_128
+	rm -f test_reader_$(WORD_SIZE) test_writer_$(WORD_SIZE)
