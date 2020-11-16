@@ -8,7 +8,7 @@
 bool srsvm_debug_mode;
 
 int main(){
-    srsvm_debug_mode = true;
+    srsvm_debug_mode = false;
 
     srsvm_vm *vm = srsvm_vm_alloc();
     

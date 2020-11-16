@@ -50,7 +50,7 @@ void srsvm_program_free_const(srsvm_constant_specification *c)
 {
     if(c != NULL){
         if(c->next != NULL){
-            srsvm_program_free_const(c);
+            srsvm_program_free_const(c->next);
         }
 
         free(c);

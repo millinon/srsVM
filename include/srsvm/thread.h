@@ -46,6 +46,8 @@ struct srsvm_thread
 
     srsvm_ptr PC;
 
+    srsvm_ptr next_PC;
+
     srsvm_word exit_status;
 
     bool is_halted;

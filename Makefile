@@ -1,4 +1,4 @@
-.phony: clean-obj clean
+.PHONY: clean-obj clean
 
 WORD_SIZE := $(if $(WORD_SIZE),$(WORD_SIZE),16)
 CFLAGS:=-Iinclude -O0 -g -DDEBUG -Wall -DSRSVM_SUPPORT_COMPRESSED_MEMORY -DWORD_SIZE=$(WORD_SIZE)

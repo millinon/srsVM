@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "srsvm/debug.h"
 #include "srsvm/mmu.h"
 #include "srsvm/opcode-helpers.h"
 #include "srsvm/module.h"
@@ -128,6 +129,7 @@ void builtin_LOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, con
             LOADER(u128, U128);
             LOADER(i128, I128);
 #endif
+            LOADER(str, STR);
 #undef LOADER
             default:
                 thread->has_fault = true;
@@ -187,10 +189,11 @@ void builtin_STORE(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, co
             LOADER(u128, U128);
             LOADER(i128, I128);
 #endif
+            LOADER(str, STR);
 #undef LOADER
             default:
-                thread->has_fault = true;
-                thread->fault_str = "Attempt to store invalid type";
+            thread->has_fault = true;
+            thread->fault_str = "Attempt to store invalid type";
             break;
         }
 
@@ -272,12 +275,119 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 
 }
 
+
+void builtin_JMP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *target_addr_reg = register_lookup(vm, thread, argv[0]);
+
+    if(target_addr_reg != NULL){
+        thread->next_PC = target_addr_reg->value.ptr;
+    }
+}
+
+void builtin_JMP_OFF(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *target_off_reg = register_lookup(vm, thread, argv[0]);
+
+    if(target_off_reg != NULL){
+        thread->next_PC = thread->PC + target_off_reg->value.ptr_offset;
+    }
+}
+
+void builtin_JMP_IF(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *target_addr_reg = register_lookup(vm, thread, argv[0]);
+    srsvm_register *condition_reg = register_lookup(vm, thread, argv[1]);
+
+    if(target_addr_reg != NULL && condition_reg != NULL){
+        if(condition_reg->value.bit){
+            thread->next_PC = target_addr_reg->value.ptr;
+        }
+    }
+}
+
+void builtin_JMP_OFF_IF(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *target_off_reg = register_lookup(vm, thread, argv[0]);
+    srsvm_register *condition_reg = register_lookup(vm, thread, argv[1]);
+
+    if(target_off_reg != NULL && condition_reg != NULL){
+        if(condition_reg->value.bit){
+            thread->next_PC = thread->PC + target_off_reg->value.ptr_offset;
+        }
+    }
+}
+
+void builtin_JMP_ERR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *target_addr_reg = register_lookup(vm, thread, argv[0]);
+    srsvm_register *condition_reg = register_lookup(vm, thread, argv[1]);
+
+    if(target_addr_reg != NULL && condition_reg != NULL){
+        if(condition_reg->error_flag){
+            thread->next_PC = target_addr_reg->value.ptr;
+        }
+    }
+}
+
+void builtin_JMP_OFF_ERR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *target_off_reg = register_lookup(vm, thread, argv[0]);
+    srsvm_register *condition_reg = register_lookup(vm, thread, argv[1]);
+
+    if(target_off_reg != NULL && condition_reg != NULL){
+        if(condition_reg->error_flag){
+            thread->next_PC = thread->PC + target_off_reg->value.ptr_offset;
+        }
+    }
+}
+
 void builtin_PUTS(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
 {
     srsvm_register *src_str_reg = register_lookup(vm, thread, argv[0]);
 
     if(src_str_reg != NULL){
         puts(src_str_reg->value.str);
+    }
+}
+
+void builtin_INCR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *reg = register_lookup(vm, thread, argv[0]);
+
+    if(reg != NULL){
+        srsvm_word val = reg->value.word + 1;
+
+        if(! load_word(reg, val, 0)){
+            dbg_puts("failed to load word into register");
+        }
+    }
+}
+
+void builtin_DECR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *reg = register_lookup(vm, thread, argv[0]);
+
+    if(reg != NULL){
+        srsvm_word val = reg->value.word - 1;
+
+        if(! load_word(reg, val, 0)){
+            dbg_puts("failed to load word into register");
+        }
+    }
+}
+
+void builtin_WORD_EQ(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *dest_reg = register_lookup(vm, thread, argv[0]);
+    srsvm_register *a_reg = register_lookup(vm, thread, argv[1]);
+    srsvm_register *b_reg = register_lookup(vm, thread, argv[2]);
+
+    if(dest_reg != NULL && a_reg != NULL && b_reg != NULL){
+        srsvm_word a = a_reg->value.word;
+        srsvm_word b = b_reg->value.word;
+            
+        load_bit(dest_reg, a == b, 0);
     }
 }
 

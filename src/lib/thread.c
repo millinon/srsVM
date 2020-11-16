@@ -13,7 +13,8 @@ srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_ad
 
     if(thread != NULL){
         thread->id = id;
-        thread->PC = start_addr;
+        thread->PC = SRSVM_NULL_PTR;
+        thread->next_PC = start_addr;
 
         thread->is_halted = false;
         thread->has_fault = false;

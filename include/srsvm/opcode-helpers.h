@@ -142,6 +142,30 @@ static inline bool load_str(srsvm_register *reg, const char* value, size_t len)
     }
 }
 
+static inline bool mem_store_str(const srsvm_vm *vm, srsvm_register *reg, const srsvm_ptr ptr, const srsvm_word offset)
+{
+    return srsvm_mmu_store(vm->mem_root, ptr, (reg->value.str_len + 1) * sizeof(char), &reg->value.str);
+}
+
+static inline bool mem_load_str(const srsvm_vm *vm, srsvm_register *reg, const srsvm_ptr ptr, const srsvm_word offset)
+{
+    srsvm_memory_segment *seg = srsvm_mmu_locate(vm->mem_root, ptr);
+
+    if(seg != NULL){
+        for(size_t str_len = 0; str_len < seg->literal_sz - (ptr - seg->literal_start); str_len++){
+            char *lit_ptr = seg->literal_memory + str_len;
+
+            if(*lit_ptr == 0){
+                reg->value.str = strndup(lit_ptr, str_len);
+                reg->value.str_len = (srsvm_word) str_len;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static inline bool load_str_len(srsvm_register *reg, const char* value)
 {
     return load_str(reg, value, strlen(value));

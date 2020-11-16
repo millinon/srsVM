@@ -147,12 +147,14 @@ void run_thread(void* arg)
     srsvm_thread_info *info = arg;
 
     while(! info->thread->is_halted && ! info->thread->has_fault){
+        info->thread->PC = info->thread->next_PC;
+        
         srsvm_instruction current_instruction;
 
         if(! srsvm_opcode_load_instruction(info->vm, info->thread->PC, &current_instruction)){
             info->thread->has_fault = true;
         } else {
-            info->thread->PC = info->thread->PC + sizeof(current_instruction.opcode) + sizeof(srsvm_word) * current_instruction.argc;
+            info->thread->next_PC = info->thread->PC + sizeof(current_instruction.opcode) + sizeof(srsvm_word) * current_instruction.argc;
 
             srsvm_vm_execute_instruction(info->vm, info->thread, &current_instruction);
         }

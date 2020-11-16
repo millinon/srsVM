@@ -11,8 +11,17 @@ int main(){
     srsvm_debug_mode = true;
 
     srsvm_word static_program[] = {
-        (OPCODE_MK_ARGC(2) | 7), 0, 0, 
-        (OPCODE_MK_ARGC(1) | 1337), 0,
+        (OPCODE_MK_ARGC(2) | 9), 3, 0,
+        (OPCODE_MK_ARGC(2) | 9), 2, 2,
+        (OPCODE_MK_ARGC(1) | 1337), 3,
+        (OPCODE_MK_ARGC(1) | 30), 1,
+        (OPCODE_MK_ARGC(3) | 40), 0, 1, 2,
+        (OPCODE_MK_ARGC(2) | 9), 4, 3,
+        (OPCODE_MK_ARGC(2) | 6), 4, 0,
+        (OPCODE_MK_ARGC(2) | 9), 4, 4,
+        (OPCODE_MK_ARGC(1) | 4), 4,
+        (OPCODE_MK_ARGC(2) | 9), 3, 1,
+        (OPCODE_MK_ARGC(1) | 1337), 3,
         (OPCODE_MK_ARGC(0) | 1),
     };
 
@@ -27,7 +36,23 @@ int main(){
     program->registers = reg;
     strcpy(reg->name, "R0");
     reg->index = 0;
-    program->num_registers = 1;
+    reg->next = srsvm_program_register_alloc();
+    reg = reg->next;
+    strcpy(reg->name, "ACC");
+    reg->index = 1;
+    reg->next = srsvm_program_register_alloc();
+    reg = reg->next;
+    strcpy(reg->name, "TARG");
+    reg->index = 2;
+    reg->next = srsvm_program_register_alloc();
+    reg = reg->next;
+    strcpy(reg->name, "STR");
+    reg->index = 3;
+    reg->next = srsvm_program_register_alloc();
+    reg = reg->next;
+    strcpy(reg->name, "OFF");
+    reg->index = 4;
+    program->num_registers = 5;
 
     srsvm_literal_memory_specification *lmem = srsvm_program_lmem_alloc();
     program->literal_memory = lmem;
@@ -50,13 +75,35 @@ int main(){
     c->const_val.str = "Hello, world!";
     c->const_val.str_len = strlen("Hello, world!");
     c->const_slot = 0;
-    program->num_constants = 1;
+    c->next = srsvm_program_const_alloc();
+    c = c->next;
+    c->const_val.type = STR;
+    c->const_val.str = "All done.";
+    c->const_val.str_len = strlen("All done.");
+    c->const_slot = 1;
+    c->next = srsvm_program_const_alloc();
+    c = c->next;
+    c->const_val.type = WORD;
+    c->const_val.word = 10;
+    c->const_slot = 2;
+    c->next = srsvm_program_const_alloc();
+    c = c->next;
+    c->const_val.type = PTR_OFFSET;
+    c->const_val.ptr_offset = 8 * (srsvm_word) sizeof(srsvm_word);
+    c->const_slot = 3;
+    c->next = srsvm_program_const_alloc();
+    c = c->next;
+    c->const_val.type = PTR_OFFSET;
+    c->const_val.ptr_offset = -17 * (srsvm_word) sizeof(srsvm_word);
+    c->const_slot = 4;
+    program->num_constants = 5;
+
 
     if(! srsvm_program_serialize("hello_world.svm", program)){
         fprintf(stderr, "Failed to serialize to hello_world.svm\n");
     } else {
         printf("Serialized to hello_world.svm\n");
     }
-
+    
     srsvm_program_free(program);
 }
