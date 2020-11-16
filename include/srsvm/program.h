@@ -29,6 +29,7 @@ typedef struct srsvm_register_specification srsvm_register_specification;
 
 struct srsvm_register_specification
 {
+    uint16_t name_len;
     char name[SRSVM_REGISTER_MAX_NAME_LEN];
     uint32_t index;    
     
@@ -53,7 +54,7 @@ struct srsvm_literal_memory_specification
     srsvm_word size;
 
     bool is_compressed;
-    srsvm_word compressed_size;
+    size_t compressed_size;
 
     bool readable;
     bool writable;
@@ -93,6 +94,10 @@ typedef struct
     srsvm_literal_memory_specification *literal_memory;
 
     uint16_t num_constants;
+    bool constants_compressed;
+    size_t constants_original_size;
+    size_t constants_compressed_size;
+
     srsvm_constant_specification *constants;
 #endif
 } srsvm_program;

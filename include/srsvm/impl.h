@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "srsvm/forward-decls.h"
+#include "srsvm/word.h"
 
 #ifdef __unix__
 
@@ -27,7 +28,7 @@ bool srsvm_thread_start(srsvm_thread *thread, native_thread_proc proc, void* arg
 void srsvm_thread_exit(srsvm_thread *thread);
 bool srsvm_thread_join(srsvm_thread *thread);
 
-void srsvm_sleep(const long ms_timeout);
+void srsvm_sleep(const srsvm_word ms_timeout);
 
 typedef bool (*srsvm_module_opcode_loader)(void*, srsvm_opcode*);
 
@@ -45,7 +46,7 @@ bool srsvm_directory_exists(const char* dir_name);
 bool srsvm_file_exists(const char* file_name);
 char *srsvm_path_combine(const char* path_1, const char* path_2);
 
-#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+#if defined(SRSVM_SUPPORT_COMPRESSION)
 void *srsvm_zlib_deflate(const void* data, size_t *compressed_size, const size_t original_size);
 void *srsvm_zlib_inflate(const void* data, const size_t compressed_size, const size_t original_size);
 #endif

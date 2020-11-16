@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -245,7 +246,10 @@ static bool deserialize_registers(FILE *stream, srsvm_program *program)
                 reg = srsvm_program_register_alloc();
 
                 if(reg != NULL){
-                    if(fread(&reg->name, sizeof(char), SRSVM_REGISTER_MAX_NAME_LEN, stream) != SRSVM_REGISTER_MAX_NAME_LEN){
+                    if(fread(&reg->name_len, sizeof(reg->name_len), 1, stream) != 1){
+                        goto error_cleanup;
+                    } else if(fread(&reg->name, sizeof(char), reg->name_len+1, stream) != reg->name_len+1){
+                        dbg_puts("reg name short");
                         goto error_cleanup;
                     } else if(fread(&reg->index, sizeof(reg->index), 1, stream) != 1){
                         goto error_cleanup;
@@ -274,10 +278,6 @@ error_cleanup:
         srsvm_program_free_register(reg);
     }
 
-    if(program->registers != NULL){
-        srsvm_program_free_register(program->registers);
-    }
-
     return false;
 }
 
@@ -285,7 +285,7 @@ static bool deserialize_vmem(FILE *stream, srsvm_program *program)
 {
     bool success = false;
 
-    srsvm_virtual_memory_specification *vmem = NULL, *last_vmem; 
+    srsvm_virtual_memory_specification *vmem = NULL, *last_vmem = NULL; 
 
     if(stream != NULL && program != NULL){
         size_t read_result = fread(&program->num_vmem_segments, sizeof(program->num_vmem_segments), 1, stream);
@@ -323,9 +323,6 @@ error_cleanup:
     if(vmem != NULL){
         srsvm_program_free_vmem(vmem);
     }
-    if(program->virtual_memory != NULL){
-        srsvm_program_free_vmem(program->virtual_memory);
-    }
 
     return false;
 }
@@ -334,7 +331,7 @@ static bool deserialize_lmem(FILE *stream, srsvm_program *program)
 {
     bool success = false;
 
-    srsvm_literal_memory_specification *lmem = NULL, *last_lmem; 
+    srsvm_literal_memory_specification *lmem = NULL, *last_lmem = NULL; 
 
     if(stream != NULL && program != NULL){
         size_t read_result = fread(&program->num_lmem_segments, sizeof(program->num_lmem_segments), 1, stream);
@@ -369,7 +366,7 @@ static bool deserialize_lmem(FILE *stream, srsvm_program *program)
                         } else {
                             read_bytes = (size_t) lmem->size;
                         }
-                        
+
                         lmem->data = malloc(read_bytes);
 
                         if(lmem->data == NULL){
@@ -381,7 +378,7 @@ static bool deserialize_lmem(FILE *stream, srsvm_program *program)
                         }
 
                         if(lmem->is_compressed){
-#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+#if defined(SRSVM_SUPPORT_COMPRESSION)
                             void *compressed_data = lmem->data;
                             lmem->data = NULL;
 
@@ -422,9 +419,6 @@ error_cleanup:
     if(lmem != NULL){
         srsvm_program_free_lmem(lmem);
     }
-    if(program->literal_memory != NULL){
-        srsvm_program_free_lmem(program->literal_memory);
-    }
 
     return false;
 }
@@ -433,98 +427,215 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
 {
     bool success = false;
 
-    srsvm_constant_specification *c = NULL, *last_c; 
+    srsvm_constant_specification *c = NULL, *last_c = NULL; 
 
     bool claimed_slots[SRSVM_CONST_MAX_COUNT] = { false };
 
     if(stream != NULL && program != NULL){
-        size_t read_result = fread(&program->num_constants, sizeof(program->num_constants), 1, stream);
-
-        if(read_result < 1){
-            dbg_puts("ERROR: failed to read number of constants");
+        if(fread(&program->num_constants, sizeof(program->num_constants), 1, stream) != 1){
             goto error_cleanup;
+        } else if(fread(&program->constants_compressed, sizeof(program->constants_compressed), 1, stream) != 1){
+            goto error_cleanup;
+        } else if(fread(&program->constants_original_size, sizeof(program->constants_original_size), 1, stream) != 1){
+            goto error_cleanup;
+        } else if(fread(&program->constants_compressed_size, sizeof(program->constants_compressed_size), 1, stream) != 1){
+            goto error_cleanup;
+        }
+
+        if(program->constants_compressed){
+#if SRSVM_SUPPORT_COMPRESSION
+            void *compressed_data = malloc(program->constants_compressed_size);
+
+            if(compressed_data == NULL){
+                goto error_cleanup;
+            } else if(fread(compressed_data, sizeof(char), program->constants_compressed_size, stream) != program->constants_compressed_size){
+                goto error_cleanup;
+            }
+
+            size_t compressed_size = program->constants_compressed_size;
+            size_t uncompressed_size = program->constants_original_size;
+
+            void *decompressed_data = srsvm_zlib_inflate(compressed_data, compressed_size, uncompressed_size);
+            
+            free(compressed_data);
+
+            if(decompressed_data == NULL){
+                goto error_cleanup;
+            }
+
+            size_t offset = 0;
+
+            for(uint16_t i = 0; i < program->num_constants; i++){
+                c = srsvm_program_const_alloc();
+
+                if(c == NULL){
+                    goto error_cleanup;
+                }
+
+                dbg_printf("i = %d\n", i);
+
+                memcpy(&c->const_slot, decompressed_data + offset, sizeof(c->const_slot));
+                if(c->const_slot > SRSVM_CONST_MAX_COUNT || claimed_slots[c->const_slot]){
+                    goto error_cleanup;
+                }
+                offset += sizeof(c->const_slot);
+
+                memcpy(&c->const_val.type, decompressed_data + offset, sizeof(c->const_val.type));
+                offset += sizeof(c->const_val.type);
+
+                dbg_printf("got type: %d\n", c->const_val.type);
+
+                switch(c->const_val.type){
+
+#define LOADER(field,flag) case flag:\
+                    memcpy(&c->const_val.field, decompressed_data + offset, sizeof(c->const_val.field)); \
+                    offset += sizeof(c->const_val.field); \
+                    break;
+
+                    LOADER(word, WORD);
+                    LOADER(ptr, PTR);
+                    LOADER(ptr_offset, PTR_OFFSET);
+                    LOADER(bit, BIT);
+                    LOADER(u8, U8);
+                    LOADER(i8, I8);
+                    LOADER(u16, U16);
+                    LOADER(i16, I16);
+#if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
+                    LOADER(u32, U32);
+                    LOADER(i32, I32);
+                    LOADER(f32, F32);
+#endif
+#if WORD_SIZE == 64 || WORD_SIZE == 128
+                    LOADER(u64, U64);
+                    LOADER(i64, I64);
+                    LOADER(f64, F64);
+#endif
+#if WORD_SIZE == 128
+                    LOADER(u128, U128);
+                    LOADER(i128, I128);
+#endif
+#undef LOADER
+                    case STR:
+                    memcpy(&c->const_val.str_len, decompressed_data + offset, sizeof(c->const_val.str_len));
+                    offset += sizeof(c->const_val.str_len);
+
+                    char *tmp = malloc((c->const_val.str_len + 1) * sizeof(char));
+
+                    if(tmp == NULL){
+                        goto error_cleanup;
+                    }
+
+                    memset(tmp, 0, (size_t) c->const_val.str_len + 1);
+                    memcpy(tmp, decompressed_data + offset, (size_t) c->const_val.str_len);
+                    offset += c->const_val.str_len;
+                    c->const_val.str = (const char*) tmp;
+                    break;
+
+                    default:
+                    goto error_cleanup;
+                }
+
+                if(program->constants == NULL){
+                    program->constants = c;
+                } else {
+                    last_c->next = c;
+                }
+
+                last_c = c;
+                claimed_slots[c->const_slot] = true;
+            }
+
+            success = true;
+
+            free(decompressed_data);
+#else
+            dbg_puts("ERROR: Tried to load a program with compressed memory, which this implementation does not support");
+            goto error_cleanup;
+#endif
         } else {
             for(uint16_t i = 0; i < program->num_constants; i++){
                 c = srsvm_program_const_alloc();
 
-                if(c != NULL){
-                    if(fread(&c->const_slot, sizeof(c->const_slot), 1, stream) < 1){
-                        goto error_cleanup;
-                    } else if(c->const_slot > SRSVM_CONST_MAX_COUNT || claimed_slots[c->const_slot]){
-                        goto error_cleanup;
-                    } else if(fread(&c->const_val.type,  sizeof(c->const_val.type), 1, stream) < 1){
-                        goto error_cleanup;
-                    } else {
-                        switch(c->const_val.type)
-                        {
+                if(c == NULL){
+                    goto error_cleanup;
+                }
+
+                if(fread(&c->const_slot, sizeof(c->const_slot), 1, stream) < 1){
+                    goto error_cleanup;
+                } else if(c->const_slot > SRSVM_CONST_MAX_COUNT || claimed_slots[c->const_slot]){
+                    goto error_cleanup;
+                } else if(fread(&c->const_val.type,  sizeof(c->const_val.type), 1, stream) < 1){
+                    goto error_cleanup;
+                } else {
+                    switch(c->const_val.type)
+                    {
 
 #define LOADER(field,flag) case flag:\
-                            if(fread(&c->const_val.field, sizeof(c->const_val.field), 1, stream) < 1){ \
-                                goto error_cleanup; \
-                            } \
-                            break; 
+                        if(fread(&c->const_val.field, sizeof(c->const_val.field), 1, stream) < 1){ \
+                            goto error_cleanup; \
+                        } \
+                        break; 
 
-                            LOADER(word, WORD);
-                            LOADER(ptr, PTR);
-                            LOADER(ptr_offset, PTR_OFFSET);
-                            LOADER(bit, BIT);
-                            LOADER(u8, U8);
-                            LOADER(i8, I8);
-                            LOADER(u16, U16);
-                            LOADER(i16, I16);
+                        LOADER(word, WORD);
+                        LOADER(ptr, PTR);
+                        LOADER(ptr_offset, PTR_OFFSET);
+                        LOADER(bit, BIT);
+                        LOADER(u8, U8);
+                        LOADER(i8, I8);
+                        LOADER(u16, U16);
+                        LOADER(i16, I16);
 #if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
-                            LOADER(u32, U32);
-                            LOADER(i32, I32);
-                            LOADER(f32, F32);
+                        LOADER(u32, U32);
+                        LOADER(i32, I32);
+                        LOADER(f32, F32);
 #endif
 #if WORD_SIZE == 64 || WORD_SIZE == 128
-                            LOADER(u64, U64);
-                            LOADER(i64, I64);
-                            LOADER(f64, F64);
+                        LOADER(u64, U64);
+                        LOADER(i64, I64);
+                        LOADER(f64, F64);
 #endif
 #if WORD_SIZE == 128
-                            LOADER(u128, U128);
-                            LOADER(i128, I128);
+                        LOADER(u128, U128);
+                        LOADER(i128, I128);
 #endif
 #undef LOADER
-                            case STR:
-                                if(fread(&c->const_val.str_len, sizeof(c->const_val.str_len), 1, stream) != 1){
-                                    dbg_puts("ERROR: failed to read string length");
-                                    goto error_cleanup;
-                                } else {
-                                    char *tmp = malloc((c->const_val.str_len + 1) * sizeof(char));
-
-                                    if(tmp == NULL){
-                                        goto error_cleanup;
-                                    } else {
-                                        memset(tmp, 0, (size_t) c->const_val.str_len + 1);
-                                    }
-
-                                    if(fread(tmp, sizeof(char), (size_t) c->const_val.str_len, stream) != c->const_val.str_len){
-                                        dbg_puts("ERROR: failed to read string");
-
-                                        free(tmp);
-                                        goto error_cleanup;
-                                    }
-
-                                    c->const_val.str = (const char*) tmp;
-                                }
-                                break;
-
-                            default:
+                        case STR:
+                        if(fread(&c->const_val.str_len, sizeof(c->const_val.str_len), 1, stream) != 1){
+                            dbg_puts("ERROR: failed to read string length");
                             goto error_cleanup;
-                        }
-
-                        if(program->constants == NULL){
-                            program->constants = c;
                         } else {
-                            last_c->next = c;
-                        }
+                            char *tmp = malloc((c->const_val.str_len + 1) * sizeof(char));
 
-                        last_c = c;
-                        claimed_slots[c->const_slot] = true;
+                            if(tmp == NULL){
+                                goto error_cleanup;
+                            }
+                            
+                            memset(tmp, 0, (size_t) c->const_val.str_len + 1);
+
+                            if(fread(tmp, sizeof(char), (size_t) c->const_val.str_len, stream) != c->const_val.str_len){
+                                dbg_puts("ERROR: failed to read string");
+
+                                free(tmp);
+                                goto error_cleanup;
+                            }
+
+                            c->const_val.str = (const char*) tmp;
+                        }
+                        break;
+
+                        default:
+                        goto error_cleanup;
                     }
-                } else goto error_cleanup;
+
+                    if(program->constants == NULL){
+                        program->constants = c;
+                    } else {
+                        last_c->next = c;
+                    }
+
+                    last_c = c;
+                    claimed_slots[c->const_slot] = true;
+                }
             }
 
             success = true;
@@ -537,11 +648,7 @@ error_cleanup:
     if(c != NULL){
         srsvm_program_free_const(c);
     }
-    if(program->constants != NULL){
-        srsvm_program_free_const(program->constants);
-
-    }
-
+   
     return false;
 }
 
@@ -583,8 +690,6 @@ srsvm_program *srsvm_program_deserialize(const char* program_path)
 error_cleanup:
     if(stream != NULL)
         fclose(stream);
-    if(program != NULL)
-        srsvm_program_free(program);
 
     return NULL;
 }
@@ -602,7 +707,7 @@ bool serialize_metadata(FILE *stream, const srsvm_program *program)
         if(writable_shebang == NULL){
             goto error_cleanup;
         } 
-        
+
         for(int i = shebang_len-1; i >= 0; i--){
             if(writable_shebang[i] == '\n'){
                 writable_shebang[i] = '\0';
@@ -638,7 +743,9 @@ bool write_reg(FILE* stream, const srsvm_register_specification *reg)
 {
     if(reg == NULL){
         return true;
-    } else if(fwrite(&reg->name, sizeof(char), sizeof(reg->name), stream) != sizeof(reg->name)){
+    } else if(fwrite(&reg->name_len, sizeof(reg->name_len), 1, stream) != 1){
+        return false;
+    } else if(fwrite(&reg->name, sizeof(char), reg->name_len+1, stream) != (reg->name_len+1)){
         return false;
     } else if(fwrite(&reg->index, sizeof(reg->index), 1, stream) != 1){
         return false;
@@ -656,7 +763,7 @@ bool serialize_registers(FILE *stream, const srsvm_program *program)
     } else {
         success = write_reg(stream, program->registers);
     }
-    
+
     return success;
 }
 
@@ -690,43 +797,63 @@ bool write_lmem(FILE *stream, const srsvm_literal_memory_specification *lmem)
 {
     if(lmem == NULL){
         return true;
-    } else if(fwrite(&lmem->start_address, sizeof(lmem->start_address), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->size, sizeof(lmem->size), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->is_compressed, sizeof(lmem->is_compressed), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->compressed_size, sizeof(lmem->compressed_size), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->readable, sizeof(lmem->readable), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->writable, sizeof(lmem->writable), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->executable, sizeof(lmem->executable), 1, stream) != 1){
-        return false;
-    } else if(fwrite(&lmem->locked, sizeof(lmem->locked), 1, stream) != 1){
-        return false;
     } else {
+            
+        size_t compressed_size = 0;
+        void* compressed_data = NULL;
+
         if(lmem->is_compressed){
-            if(fwrite(lmem->data, sizeof(char), (size_t) lmem->compressed_size, stream) != lmem->compressed_size){
+#if defined(SRSVM_SUPPORT_COMPRESSION)
+            compressed_data = srsvm_zlib_deflate(lmem->data, &compressed_size, (size_t) lmem->size);
+
+            if(compressed_data == NULL){
                 return false;
             }
-        } else {
-            if(fwrite(lmem->data, sizeof(char), (size_t) lmem->size, stream) != lmem->size){
-                return false;
-            }
+#else
+            dbg_puts("ERROR: attempt to serialize a compressed memory segment");
+            return false;
+#endif
         }
 
-        if(lmem->next == NULL){
-            return true;
-        } else return write_lmem(stream, lmem->next);
+        if(fwrite(&lmem->start_address, sizeof(lmem->start_address), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&lmem->size, sizeof(lmem->size), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&lmem->is_compressed, sizeof(lmem->is_compressed), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&compressed_size, sizeof(compressed_size), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&lmem->readable, sizeof(lmem->readable), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&lmem->writable, sizeof(lmem->writable), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&lmem->executable, sizeof(lmem->executable), 1, stream) != 1){
+            return false;
+        } else if(fwrite(&lmem->locked, sizeof(lmem->locked), 1, stream) != 1){
+            return false;
+        } else {
+            if(lmem->is_compressed){
+                if(fwrite(compressed_data, sizeof(char), compressed_size, stream) != compressed_size){
+                    free(compressed_data);
+                    return false;
+                } else free(compressed_data);
+            } else {
+                if(fwrite(lmem->data, sizeof(char), (size_t) lmem->size, stream) != lmem->size){
+                    return false;
+                }
+            }
+
+            if(lmem->next == NULL){
+                return true;
+            } else return write_lmem(stream, lmem->next);
+        }
     }
 }
 
 bool serialize_lmem(FILE *stream, const srsvm_program *program)
 {
     bool success = false;
-    
+
     if(fwrite(&program->num_lmem_segments, sizeof(program->num_lmem_segments), 1, stream) != 1){
         success = false;
     } else {
@@ -779,6 +906,7 @@ bool write_const(FILE *stream, const srsvm_constant_specification *c)
                 LOADER(u128, U128);
                 LOADER(i128, I128);
 #endif
+#undef LOADER
                 case STR:
                 if(fwrite(&cv->str_len, sizeof(cv->str_len), 1, stream) != 1){
                     return false;
@@ -804,8 +932,146 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
 
     if(fwrite(&program->num_constants, sizeof(program->num_constants), 1, stream) != 1){
         success = false;
+    } else if(fwrite(&program->constants_compressed, sizeof(program->constants_compressed), 1, stream) != 1){
+        success = false;
     } else {
-        success = write_const(stream, program->constants);
+        if(program->constants_compressed){
+            srsvm_constant_specification *c = program->constants;
+
+            size_t uncompressed_size = 0;
+
+            for(int i = 0; c != NULL && i < program->num_constants; i++){
+                uncompressed_size += sizeof(c->const_slot);
+                uncompressed_size += sizeof(c->const_val.type);
+
+                switch(c->const_val.type){
+#define LOADER(field,flag) \
+                    case flag: \
+                               uncompressed_size += sizeof(c->const_val.field); \
+                    break;
+
+                    LOADER(word, WORD);
+                    LOADER(ptr, PTR);
+                    LOADER(ptr_offset, PTR_OFFSET);
+                    LOADER(bit, BIT);
+                    LOADER(u8, U8);
+                    LOADER(i8, I8);
+                    LOADER(u16, U16);
+                    LOADER(i16, I16);
+#if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
+                    LOADER(u32, U32);
+                    LOADER(i32, I32);
+                    LOADER(f32, F32);
+#endif
+#if WORD_SIZE == 64 || WORD_SIZE == 128
+                    LOADER(u64, U64);
+                    LOADER(i64, I64);
+                    LOADER(f64, F64);
+#endif
+#if WORD_SIZE == 128
+                    LOADER(u128, U128);
+                    LOADER(i128, I128);
+#endif
+#undef LOADER
+                    case STR:
+                    uncompressed_size += sizeof(c->const_val.str_len);
+                    uncompressed_size += c->const_val.str_len;
+
+                    break;
+                }
+
+                c = c->next;
+            }
+
+            void *uncompressed_data = malloc(uncompressed_size);
+            if(uncompressed_data == NULL){
+                return false;
+            }
+
+            size_t offset = 0;
+            c = program->constants;
+
+            for(int i = 0; c != NULL && i < program->num_constants; i++){
+                memcpy(uncompressed_data + offset, &c->const_slot, sizeof(c->const_slot));
+                offset += sizeof(c->const_slot);
+                memcpy(uncompressed_data + offset, &c->const_val.type, sizeof(c->const_val.type));
+                offset += sizeof(c->const_val.type);
+
+                switch(c->const_val.type){
+#define LOADER(field,flag) \
+                    case flag: \
+                               memcpy(uncompressed_data + offset, &c->const_val.field, sizeof(c->const_val.field)); \
+                    offset += sizeof(c->const_val.field); \
+                    break;
+
+                    LOADER(word, WORD);
+                    LOADER(ptr, PTR);
+                    LOADER(ptr_offset, PTR_OFFSET);
+                    LOADER(bit, BIT);
+                    LOADER(u8, U8);
+                    LOADER(i8, I8);
+                    LOADER(u16, U16);
+                    LOADER(i16, I16);
+#if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
+                    LOADER(u32, U32);
+                    LOADER(i32, I32);
+                    LOADER(f32, F32);
+#endif
+#if WORD_SIZE == 64 || WORD_SIZE == 128
+                    LOADER(u64, U64);
+                    LOADER(i64, I64);
+                    LOADER(f64, F64);
+#endif
+#if WORD_SIZE == 128
+                    LOADER(u128, U128);
+                    LOADER(i128, I128);
+#endif
+#undef LOADER
+                    case STR:
+                        memcpy(uncompressed_data + offset, &c->const_val.str_len, sizeof(c->const_val.str_len));
+                        offset += sizeof(c->const_val.str_len);
+                        memcpy(uncompressed_data + offset, c->const_val.str, c->const_val.str_len);
+                        offset += c->const_val.str_len;
+                    break;
+                    default:
+                        success = false;
+                    break;
+                }
+
+                c = c->next;
+            }
+
+            size_t compressed_size;
+
+            void *compressed_data = srsvm_zlib_deflate(uncompressed_data, &compressed_size, uncompressed_size);
+
+            free(uncompressed_data);
+
+            if(compressed_data == NULL){
+                return false;
+            }
+
+            if(fwrite(&uncompressed_size, sizeof(uncompressed_size), 1, stream) != 1){
+                success = false;
+            } else if(fwrite(&compressed_size, sizeof(compressed_size), 1, stream) != 1){
+                success = false;
+            } else if(fwrite(compressed_data, sizeof(char), compressed_size, stream) != compressed_size){
+                success = false;
+            } else {
+                success = true;
+            }
+
+            free(compressed_data);
+        } else {
+            size_t uncompressed_size = 0;
+            size_t compressed_size = 0;
+
+            if(fwrite(&uncompressed_size, sizeof(uncompressed_size), 1, stream) != 1){
+                success = false;
+            } else if(fwrite(&compressed_size, sizeof(compressed_size), 1, stream) != 1){
+                success = false;
+            } else success = write_const(stream, program->constants);
+        }
     }
 
     return success;

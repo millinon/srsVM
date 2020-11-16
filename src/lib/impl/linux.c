@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+#if defined(SRSVM_SUPPORT_COMPRESSION)
 #include <zlib.h>
 #endif
 
@@ -106,7 +106,7 @@ bool srsvm_thread_join(srsvm_thread *thread)
     return success;
 }
 
-void srsvm_sleep(const long ms_timeout)
+void srsvm_sleep(const srsvm_word ms_timeout)
 {
     struct timespec sleep_time, remaining_time;
 
@@ -114,7 +114,9 @@ void srsvm_sleep(const long ms_timeout)
     sleep_time.tv_nsec = (ms_timeout % 1000) * 1000 * 1000;
 
     do {
-        nanosleep(&sleep_time, &remaining_time);
+        if(nanosleep(&sleep_time, &remaining_time) == 0){
+            break;
+        }
         sleep_time = remaining_time;
     } while(remaining_time.tv_sec > 0 || remaining_time.tv_nsec > 0);
 }
@@ -260,15 +262,15 @@ char* srsvm_path_combine(const char* path_1, const char* path_2)
     if(combined != NULL){
         memset(combined, 0, (len_1 + len_2 + 2) * sizeof(char));
 
-        strncat(combined, path_1, len_1);
+        strcat(combined, path_1);
         strcat(combined, "/");
-        strncat(combined, path_2, len_2);
+        strcat(combined, path_2);
     }
 
     return combined;
 }
 
-#if defined(SRSVM_SUPPORT_COMPRESSED_MEMORY)
+#if defined(SRSVM_SUPPORT_COMPRESSION)
 void *srsvm_zlib_deflate(const void* data, size_t *compressed_size, const size_t original_size)
 {
     void *deflated_data = NULL;

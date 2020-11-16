@@ -1,10 +1,18 @@
 .PHONY: clean-obj clean
 
 WORD_SIZE := $(if $(WORD_SIZE),$(WORD_SIZE),16)
-CFLAGS:=-Iinclude -O0 -g -DDEBUG -Wall -DSRSVM_SUPPORT_COMPRESSED_MEMORY -DWORD_SIZE=$(WORD_SIZE)
-LIBS:=-pthread -ldl -lz
+
+CFLAGS :=-Iinclude -Wall -DSRSVM_SUPPORT_COMPRESSION -DWORD_SIZE=$(WORD_SIZE)
 
 all: test_reader_$(WORD_SIZE) test_writer_$(WORD_SIZE)
+
+debug: CFLAGS += -DDEBUG -g
+debug: all
+
+release: CFLAGS += -DNEDBUG -O2
+release: all
+
+LIBS:=-pthread -ldl -lz
 
 obj/$(WORD_SIZE)/%.o: src/lib/%.c
 	mkdir -p $(dir $@)

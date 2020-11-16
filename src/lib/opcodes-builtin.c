@@ -391,6 +391,15 @@ void builtin_WORD_EQ(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, 
     }
 }
 
+void builtin_SLEEP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *duration_reg = register_lookup(vm, thread, argv[0]);
+
+    if(duration_reg != NULL){
+        srsvm_sleep(duration_reg->value.word);
+    }
+}
+
 static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, const unsigned short argc_min, const unsigned short argc_max, srsvm_opcode_func* func)
 {
     bool success = false;
@@ -409,7 +418,7 @@ static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, con
             op->code = code;
             memset(op->name, 0, sizeof(op->name));
             if(strlen(name) > 0){
-                strncpy(op->name, name, sizeof(op->name));
+                strncpy(op->name, name, sizeof(op->name) - 1);
             }
             op->argc_min = argc_min;
             op->argc_max = argc_max;

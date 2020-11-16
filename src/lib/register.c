@@ -14,7 +14,7 @@ srsvm_register *srsvm_register_alloc(const char* name, const srsvm_word index)
 
     if(reg != NULL){
         reg->index = index;
-        strncpy(reg->name, name, sizeof(reg->name));
+        strncpy(reg->name, name, sizeof(reg->name) - 1);
         reg->error_flag = false;
         reg->read_only = false;
         reg->locked = false;
