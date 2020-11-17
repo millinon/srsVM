@@ -4,7 +4,10 @@
 #include <stdint.h>
 
 #include "srsvm/forward-decls.h"
+
+#if defined(WORD_SIZE)
 #include "srsvm/word.h"
+#endif
 
 #ifdef __unix__
 
@@ -22,6 +25,7 @@ void srsvm_lock_destroy(srsvm_lock *lock);
 bool srsvm_lock_acquire(srsvm_lock *lock, const long ms_timeout);
 void srsvm_lock_release(srsvm_lock *lock);
 
+#if defined(WORD_SIZE)
 typedef void (*native_thread_proc)(void*);
 
 bool srsvm_thread_start(srsvm_thread *thread, native_thread_proc proc, void* arg);
@@ -32,11 +36,13 @@ void srsvm_sleep(const srsvm_word ms_timeout);
 
 typedef bool (*srsvm_module_opcode_loader)(void*, srsvm_opcode*);
 
+bool srsvm_native_module_load_opcodes(srsvm_native_module_handle* handle, srsvm_module_opcode_loader loader, void* arg);
+#endif
+
 bool srsvm_native_module_supports_word_size(srsvm_native_module_handle *handle, const uint8_t word_size);
 
 bool srsvm_native_module_load(srsvm_native_module_handle* handle, const char* filename);
 void srsvm_native_module_unload(srsvm_native_module_handle* handle);
-bool srsvm_native_module_load_opcodes(srsvm_native_module_handle* handle, srsvm_module_opcode_loader loader, void* arg);
 
 char* srsvm_module_name_to_filename(const char* module_name);
 

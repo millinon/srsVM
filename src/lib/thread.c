@@ -58,6 +58,8 @@ void srsvm_thread_free(srsvm_vm *vm, srsvm_thread *thread)
         frame = next_frame;
     }
 
+    vm->threads[thread->id] = NULL;
+
     free(thread);
 }
 

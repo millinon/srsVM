@@ -46,7 +46,7 @@ typedef struct
     size_t count;
 } srsvm_module_map;
 
-char* srsvm_module_find(const char* module_name, const char* prog_cwd, char** search_path);
+char* srsvm_module_find(const char* module_name, const char* prog_cwd, char** search_path, bool search_multilib);
 
 srsvm_module_map *srsvm_module_map_alloc(void);
 void srsvm_module_map_free(srsvm_module_map* map);

@@ -104,6 +104,10 @@ srsvm_program_metadata* srsvm_program_metadata_alloc(void)
 
     if(metadata != NULL){
         memset(metadata, 0, sizeof(srsvm_program_metadata));
+        strncpy(metadata->magic, "SRS", sizeof(metadata->magic));
+#if defined(WORD_SIZE)
+        metadata->word_size = WORD_SIZE;
+#endif
     }
 
     return metadata;
@@ -164,50 +168,37 @@ static bool deserialize_metadata(FILE *stream, srsvm_program *program)
 
     if(program != NULL){
         if(stream != NULL && (metadata = srsvm_program_metadata_alloc()) != NULL){
-            size_t read_result = fread(&metadata->word_size, sizeof(metadata->word_size), 1, stream);
-
-            if(read_result < 1){
+            if(fread(&metadata->magic, sizeof(metadata->magic), 1, stream) != 1){
                 goto error_cleanup;
             }
 
-            if(metadata->word_size == '#'){
-                char buf;
+            if(metadata->magic[0] == '#' && metadata->magic[1] == '!'){
+                strncpy(metadata->shebang, metadata->magic, sizeof(metadata->magic));
 
-                read_result = fread(&buf, sizeof(char), 1, stream);
-
-                if(read_result == 1 && buf == '!'){
-                    metadata->shebang[0] = '#';
-                    metadata->shebang[1] = '!';
-
-                    if(fgets(metadata->shebang + 2, PATH_MAX-2, stream) == metadata->shebang + 2){
-                        read_result = fread(&metadata->word_size, sizeof(metadata->word_size), 1, stream);
-
-                        if(read_result != 1){
-                            goto error_cleanup;
-                        } else {
-#if defined(WORD_SIZE)
-                            if(fread(&metadata->entry_point, sizeof(metadata->entry_point), 1, stream) < 1){
-                                goto error_cleanup;
-                            } else {
-                                success = true;
-                            }
-#else
-                            success = true;
-#endif
-                        }
-                    } else goto error_cleanup;
-                } else goto error_cleanup;
-            } else {
-#if defined(WORD_SIZE)
-                if(fread(&metadata->entry_point, sizeof(metadata->entry_point), 1, stream) < 1){
+                if(fgets(metadata->shebang + sizeof(metadata->magic), PATH_MAX - sizeof(metadata->magic), stream) != metadata->shebang + sizeof(metadata->magic)){
                     goto error_cleanup;
-                } else {
-                    success = true;
                 }
-#else
-                success = true;
-#endif
+            
+                if(fread(&metadata->magic, sizeof(metadata->magic), 1, stream) != 1){
+                    goto error_cleanup;
+                }
             }
+
+            if(strncmp(metadata->magic, "SRS", sizeof(metadata->magic)) != 0){
+                dbg_puts("Failed to load program: wrong magic number\n");
+                goto error_cleanup;
+            } else if(fread(&metadata->word_size, sizeof(metadata->word_size), 1, stream) != 1){
+                goto error_cleanup;
+            }
+#if defined(WORD_SIZE)
+            if(fread(&metadata->entry_point, sizeof(metadata->entry_point), 1, stream) < 1){
+                goto error_cleanup;
+            } else {
+                success = true;
+            }
+#else
+            success = true;
+#endif
         }
 
         if(success){
@@ -215,15 +206,14 @@ static bool deserialize_metadata(FILE *stream, srsvm_program *program)
         }
     }
 
-
     return success;
 
 error_cleanup:
-    if(metadata != NULL){
-        free(metadata);
-    }
+if(metadata != NULL){
+    free(metadata);
+}
 
-    return false;
+return false;
 }
 
 #if defined(WORD_SIZE)
@@ -652,47 +642,6 @@ error_cleanup:
     return false;
 }
 
-srsvm_program *srsvm_program_deserialize(const char* program_path)
-{
-    srsvm_program *program = NULL;
-
-    FILE *stream = NULL;
-
-    if(program_path != NULL){
-        stream = fopen(program_path, "rb");
-
-        if(stream != NULL){
-            program = srsvm_program_alloc();
-
-            if(! deserialize_metadata(stream, program)){
-                dbg_puts("ERROR: failed to deserialize metadata");
-                goto error_cleanup;
-            } else if(! deserialize_registers(stream, program)){
-                dbg_puts("ERROR: failed to deserialize registers");
-                goto error_cleanup;
-            } else if(! deserialize_vmem(stream, program)){
-                dbg_puts("ERROR: failed to deserialize vmem");
-                goto error_cleanup;
-            } else if(! deserialize_lmem(stream, program)){
-                dbg_puts("ERROR: failed to deserialize lmem");
-                goto error_cleanup;
-            } else if(! deserialize_constants(stream, program)){
-                dbg_puts("ERROR: failed to deserialize constants");
-                goto error_cleanup;
-            }
-
-            fclose(stream);
-        }
-    }
-
-    return program;
-
-error_cleanup:
-    if(stream != NULL)
-        fclose(stream);
-
-    return NULL;
-}
 
 bool serialize_metadata(FILE *stream, const srsvm_program *program)
 {
@@ -721,7 +670,9 @@ bool serialize_metadata(FILE *stream, const srsvm_program *program)
         free(writable_shebang);
     }
 
-    if(fwrite(&program->metadata->word_size, sizeof(program->metadata->word_size), 1, stream) != 1){
+    if(fwrite(&program->metadata->magic, sizeof(program->metadata->magic), 1, stream) != 1){
+        goto error_cleanup;
+    } else if(fwrite(&program->metadata->word_size, sizeof(program->metadata->word_size), 1, stream) != 1){
         goto error_cleanup;
     } else if(fwrite(&program->metadata->entry_point, sizeof(program->metadata->entry_point), 1, stream) != 1){
         goto error_cleanup;
@@ -1132,4 +1083,48 @@ uint8_t srsvm_program_word_size(const char* program_path)
     }
 
     return word_size;
+}
+
+srsvm_program *srsvm_program_deserialize(const char* program_path)
+{
+    srsvm_program *program = NULL;
+
+    FILE *stream = NULL;
+
+    if(program_path != NULL){
+        stream = fopen(program_path, "rb");
+
+        if(stream != NULL){
+            program = srsvm_program_alloc();
+
+            if(! deserialize_metadata(stream, program)){
+                dbg_puts("ERROR: failed to deserialize metadata");
+                goto error_cleanup;
+#if defined(WORD_SIZE)
+            } else if(! deserialize_registers(stream, program)){
+                dbg_puts("ERROR: failed to deserialize registers");
+                goto error_cleanup;
+            } else if(! deserialize_vmem(stream, program)){
+                dbg_puts("ERROR: failed to deserialize vmem");
+                goto error_cleanup;
+            } else if(! deserialize_lmem(stream, program)){
+                dbg_puts("ERROR: failed to deserialize lmem");
+                goto error_cleanup;
+            } else if(! deserialize_constants(stream, program)){
+                dbg_puts("ERROR: failed to deserialize constants");
+                goto error_cleanup;
+#endif
+            }
+
+            fclose(stream);
+        }
+    }
+
+    return program;
+
+error_cleanup:
+    if(stream != NULL)
+        fclose(stream);
+
+    return NULL;
 }

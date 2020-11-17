@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <linux/limits.h>
 #include <libgen.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -15,8 +16,9 @@
 
 #include "srsvm/debug.h"
 #include "srsvm/impl.h"
-#include "srsvm/module.h"
+#if defined(WORD_SIZE)
 #include "srsvm/thread.h"
+#endif
 
 bool srsvm_lock_initialize(srsvm_lock *lock)
 {
@@ -54,6 +56,7 @@ void srsvm_lock_release(srsvm_lock *lock)
     pthread_mutex_unlock(lock);
 }
 
+#ifdef WORD_SIZE
 typedef struct
 {
     native_thread_proc proc;
@@ -196,6 +199,7 @@ char *srsvm_module_name_to_filename(const char* module_name)
 
     return path;
 }
+#endif
 
 char* srsvm_getcwd(void)
 {
@@ -234,7 +238,7 @@ bool srsvm_directory_exists(const char* dir_name)
 
     struct stat s_buf;
     if(stat(dir_name, &s_buf) == 0){
-        dir_exists = S_ISDIR(s_buf.st_mode) == 0;
+        dir_exists = S_ISDIR(s_buf.st_mode) != 0;
     }
 
     return dir_exists;
@@ -246,7 +250,7 @@ bool srsvm_file_exists(const char* file_name)
 
     struct stat s_buf;
     if(stat(file_name, &s_buf) == 0){
-        file_exists = S_ISREG(s_buf.st_mode) == 0;
+        file_exists = S_ISREG(s_buf.st_mode) != 0;
     }
 
     return file_exists;

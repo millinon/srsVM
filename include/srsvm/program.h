@@ -5,6 +5,7 @@
 #endif
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #if defined(WORD_SIZE)
 #include "srsvm/constant.h"
@@ -16,6 +17,7 @@
 typedef struct
 {
     char shebang[PATH_MAX];
+    char magic[3];
     uint8_t word_size;
 
 #if defined(WORD_SIZE)
@@ -109,8 +111,8 @@ srsvm_program* srsvm_program_alloc(void);
 srsvm_program_metadata* srsvm_program_metadata_alloc(void);
 void srsvm_program_free_metadata(srsvm_program_metadata* metadata);
 
-#if defined(WORD_SIZE)
 srsvm_program *srsvm_program_deserialize(const char* program_path);
+#if defined(WORD_SIZE)
 bool srsvm_program_serialize(const char* output_path, const srsvm_program* program);
 
 void srsvm_program_free_register(srsvm_register_specification *reg);

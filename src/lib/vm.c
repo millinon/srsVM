@@ -266,14 +266,17 @@ srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
     srsvm_module *mod = NULL;
 
     char* file_path = NULL;
+    char* prog_cwd = NULL;
 
     if((mod = srsvm_module_lookup(vm->module_map, module_name)) != NULL){
         mod->ref_count++;
     } else {
-        char* prog_cwd = srsvm_getcwd();
+        prog_cwd = srsvm_getcwd();
 
-        file_path = srsvm_module_find(module_name, prog_cwd, vm->module_search_path);
-        free(prog_cwd);
+        bool search_multilib = true;
+
+search_again:
+        file_path = srsvm_module_find(module_name, prog_cwd, vm->module_search_path, search_multilib);
 
         if(file_path != NULL){
             bool found_slot = false;
@@ -289,8 +292,14 @@ srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
             if(found_slot){
                 mod = srsvm_module_alloc(module_name, file_path, mod_id);
 
-                if(mod != NULL || !srsvm_module_map_insert(vm->module_map, mod)){
-                    goto error_cleanup;
+                if(mod == NULL || !srsvm_module_map_insert(vm->module_map, mod)){
+                    if(search_multilib){
+                        if(mod != NULL){
+                            srsvm_module_free(mod);
+                        }
+                        search_multilib = false;
+                        goto search_again;
+                    } else goto error_cleanup;
                 }
             } else {
                 goto error_cleanup;
@@ -303,6 +312,10 @@ srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
     return mod;
 
 error_cleanup:
+    if(prog_cwd != NULL){
+        free(prog_cwd);
+    }
+
     if(file_path != NULL){
         free(file_path);
     }
