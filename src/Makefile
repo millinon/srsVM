@@ -3,7 +3,7 @@
 all: release
 
 debug: CFLAGS += -DDEBUG -g
-debug: progs
+debug:
 	$(MAKE) -C wrap debug
 	$(MAKE) WORD_SIZE=16 -C arch debug
 	$(MAKE) WORD_SIZE=32 -C arch debug

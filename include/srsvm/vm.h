@@ -4,6 +4,7 @@
 
 #include "srsvm/constant.h"
 #include "srsvm/forward-decls.h"
+#include "srsvm/map.h"
 #include "srsvm/memory.h"
 #include "srsvm/module.h"
 #include "srsvm/opcode.h"
@@ -14,7 +15,7 @@
 struct srsvm_vm
 {
     srsvm_opcode_map *opcode_map;
-    srsvm_module_map *module_map;
+    srsvm_string_map *module_map;
 
     srsvm_memory_segment *mem_root;
 
@@ -40,7 +41,7 @@ bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program);
 srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const srsvm_word index);
 srsvm_register *srsvm_vm_register_lookup(const srsvm_vm *vm, srsvm_thread* thread, const srsvm_word index);
 
-bool load_builtin_opcodes(srsvm_vm *vm);
+//bool load_builtin_opcodes(srsvm_vm *vm);
 
 bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsvm_instruction *instruction);
 
@@ -51,6 +52,7 @@ bool srsvm_vm_join_thread(srsvm_vm *vm, const srsvm_word thread_id);
 
 void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path);
 srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name);
+srsvm_module *srsvm_vm_load_module_slot(srsvm_vm *vm, const char* module_name, const srsvm_word slot_num);
 void srsvm_vm_unload_module(srsvm_vm *vm, srsvm_module *mod);
 srsvm_opcode *srsvm_vm_load_module_opcode(srsvm_vm *vm, srsvm_module *mod, const srsvm_word opcode);
 

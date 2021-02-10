@@ -22,19 +22,19 @@ bool srsvm_mmu_segment_contains_literal(const srsvm_memory_segment *segment, con
 
 srsvm_memory_segment* srsvm_mmu_locate(srsvm_memory_segment *root_segment, const srsvm_ptr address)
 {
-    dbg_printf("attempting to locate address " SWFX " in segment %p", SW_PARAM(address), root_segment);
+    dbg_printf("attempting to locate address " PRINT_WORD_HEX " in segment %p", PRINTF_WORD_PARAM(address), root_segment);
 
     srsvm_memory_segment *segment = NULL;
 
     srsvm_lock_acquire(&root_segment->lock, 0);
 
-    dbg_printf("  segment literal bounds: [" SWFX ", " SWFX ")", SW_PARAM(root_segment->literal_start), SW_PARAM(root_segment->literal_start + root_segment->literal_sz));
+    dbg_printf("  segment literal bounds: [" PRINT_WORD_HEX ", " PRINT_WORD_HEX ")", PRINTF_WORD_PARAM(root_segment->literal_start), PRINTF_WORD_PARAM(root_segment->literal_start + root_segment->literal_sz));
     
     if(srsvm_mmu_segment_contains_literal(root_segment, address, 0)){
         dbg_puts("  literal match");
         segment = root_segment;
     } else {
-        dbg_printf("  segment virtual bounds: [" SWFX ", " SWFX ")", SW_PARAM(root_segment->min_address), SW_PARAM(root_segment->max_address));
+        dbg_printf("  segment virtual bounds: [" PRINT_WORD_HEX ", " PRINT_WORD_HEX ")", PRINTF_WORD_PARAM(root_segment->min_address), PRINTF_WORD_PARAM(root_segment->max_address));
 
         if(address < root_segment->min_address || address >= root_segment->max_address)
         {
@@ -71,7 +71,7 @@ srsvm_memory_segment* srsvm_mmu_locate(srsvm_memory_segment *root_segment, const
 
 bool srsvm_mmu_store(srsvm_memory_segment *root_segment, const srsvm_ptr address, const srsvm_word bytes, void* src)
 {
-    dbg_printf("attemping to store " SWF " bytes to address " SWFX, SW_PARAM(bytes), SW_PARAM(address));
+    dbg_printf("attemping to store " PRINT_WORD " bytes to address " PRINT_WORD_HEX, PRINTF_WORD_PARAM(bytes), PRINTF_WORD_PARAM(address));
 
     srsvm_memory_segment *segment = srsvm_mmu_locate(root_segment, address);
 
@@ -128,7 +128,7 @@ bool srsvm_mmu_store(srsvm_memory_segment *root_segment, const srsvm_ptr address
 
 bool srsvm_mmu_load(srsvm_memory_segment *root_segment, const srsvm_ptr address, const srsvm_word bytes, void* dest)
 {
-    dbg_printf("attempting to load " SWF " bytes from address " SWFX " to native address %p", SW_PARAM(bytes), SW_PARAM(address), dest);
+    dbg_printf("attempting to load " PRINT_WORD " bytes from address " PRINT_WORD_HEX " to native address %p", PRINTF_WORD_PARAM(bytes), PRINTF_WORD_PARAM(address), dest);
 
     srsvm_memory_segment *segment = srsvm_mmu_locate(root_segment, address);
 
@@ -201,10 +201,10 @@ static void release_all(srsvm_memory_segment *segment)
 
 static bool has_room(srsvm_memory_segment *parent, const srsvm_word bytes, const srsvm_ptr base_address, srsvm_memory_segment *prev_parent, bool child_slot)
 {
-    dbg_printf("looking for room for " SWF " bytes in segment %p", SW_PARAM(bytes), parent);
+    dbg_printf("looking for room for " PRINT_WORD " bytes in segment %p", PRINTF_WORD_PARAM(bytes), parent);
 
     if(base_address > 0){
-        dbg_printf("  requested base address: " SWFX, SW_PARAM(base_address));
+        dbg_printf("  requested base address: " PRINT_WORD_HEX, PRINTF_WORD_PARAM(base_address));
         
         if(base_address < parent->min_address || base_address + bytes > parent->max_address){
             if(parent->parent != NULL){
@@ -313,15 +313,15 @@ static bool insert_segment(srsvm_memory_segment *parent, srsvm_memory_segment *c
 {   
     dbg_printf("attempting to insert child segment %p into parent segment %p", child, parent);
 
-    dbg_printf("child virtual size: " SWF, SW_PARAM(child->sz));
-    dbg_printf("child literal size: " SWF, SW_PARAM(child->literal_sz));
+    dbg_printf("child virtual size: " PRINT_WORD, PRINTF_WORD_PARAM(child->sz));
+    dbg_printf("child literal size: " PRINT_WORD, PRINTF_WORD_PARAM(child->literal_sz));
 
     bool success = false;
 
     int child_slot;
 
     if(suggested_base_address > 0){
-        dbg_printf("  requested base address: " SWFX, SW_PARAM(suggested_base_address));
+        dbg_printf("  requested base address: " PRINT_WORD_HEX, PRINTF_WORD_PARAM(suggested_base_address));
     }
 
     if(! has_room(parent, child->sz, suggested_base_address, NULL, false)){
@@ -464,7 +464,7 @@ srsvm_word alloc_size(const srsvm_word requested_bytes)
 
 static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segment, const srsvm_word literal_size, const srsvm_word virtual_size, const srsvm_ptr suggested_base_address, const bool force_virtual)
 {
-    dbg_printf("allocating memory segment, literal size: " SWF ", virtual_size: " SWF ", requested base address: " SWFX, SW_PARAM(literal_size), SW_PARAM(virtual_size), SW_PARAM(suggested_base_address));
+    dbg_printf("allocating memory segment, literal size: " PRINT_WORD ", virtual_size: " PRINT_WORD ", requested base address: " PRINT_WORD_HEX, PRINTF_WORD_PARAM(literal_size), PRINTF_WORD_PARAM(virtual_size), PRINTF_WORD_PARAM(suggested_base_address));
 
     srsvm_memory_segment *segment = NULL;
 

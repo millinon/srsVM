@@ -1,6 +1,7 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -366,3 +367,13 @@ error_cleanup:
     return NULL;
 }
 #endif
+
+int srsvm_strcasecmp(const char* a, const char* b)
+{
+    return strcasecmp(a, b);
+}
+
+int srsvm_strncasecmp(const char* a, const char* b, const size_t count)
+{
+    return strncasecmp(a, b, count);
+}

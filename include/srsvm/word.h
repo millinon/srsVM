@@ -7,28 +7,34 @@
 
 typedef uint16_t srsvm_word;
 
-#define SWF "%" PRIu16
-#define SWFX "0x%" PRIx16
+#define PRINT_WORD "%" PRIu16
+#define PRINT_WORD_HEX "0x%" PRIx16
 
-#define SW_PARAM(w) (w)
+#define PRINTF_WORD_PARAM(w) (w)
+
+#define SCAN_WORD_HEX "%"  SCNx16
 
 #elif WORD_SIZE == 32
 
 typedef uint32_t srsvm_word;
 
-#define SWF "%" PRIu32
-#define SWFX "0x%" PRIx32
+#define PRINT_WORD "%" PRIu32
+#define PRINT_WORD_HEX "0x%" PRIx32
 
-#define SW_PARAM(w) (w)
+#define PRINTF_WORD_PARAM(w) (w)
+
+#define SCAN_WORD_HEX "%"  SCNx32
 
 #elif WORD_SIZE == 64
 
 typedef uint64_t srsvm_word;
 
-#define SWF "%" PRIu64
-#define SWFX "0x%" PRIx64
+#define PRINT_WORD "%" PRIu64
+#define PRINT_WORD_HEX "0x%" PRIx64
 
-#define SW_PARAM(w) (w)
+#define PRINTF_WORD_PARAM(w) (w)
+
+#define SCAN_WORD_HEX "%"  SCNx64
 
 #elif WORD_SIZE == 128
 
@@ -36,10 +42,10 @@ typedef uint64_t srsvm_word;
 
 typedef unsigned __int128 srsvm_word;
 
-#define SWF "0x" "%" PRIx64 "%" PRIx64
-#define SWFX SWF
+#define PRINT_WORD "0x" "%" PRIx64 "%" PRIx64
+#define PRINT_WORD_HEX PRINT_WORD
 
-#define SW_PARAM(w) ((uint64_t)(((srsvm_word) w) >> 64)),((uint64_t)(((srsvm_word) w) & 0xFFFFFFFFFFFFFFFull))
+#define PRINTF_WORD_PARAM(w) ((uint64_t)(((srsvm_word) w) >> 64)),((uint64_t)(((srsvm_word) w) & 0xFFFFFFFFFFFFFFFull))
 
 #else
 

@@ -5,6 +5,7 @@
 
 #include "srsvm/forward-decls.h"
 #include "srsvm/impl.h"
+#include "srsvm/map.h"
 #include "srsvm/memory.h"
 #include "srsvm/word.h"
 
@@ -30,7 +31,7 @@
 
 #endif
 
-#define MAX_INSTRUCTION_ARGS ((srsvm_word)((OPCODE_ARGC_BITS) >> (OPCODE_ARGC_BITS_SHIFT)))
+#define MAX_INSTRUCTION_ARGS ((unsigned)((srsvm_word)((OPCODE_ARGC_BITS) >> (OPCODE_ARGC_BITS_SHIFT))))
 
 #define OPCODE_ARGC_MASK ((srsvm_word) OPCODE_ARGC_BITS << ((sizeof(srsvm_word) - 1) * CHAR_BIT))
 
@@ -97,3 +98,5 @@ typedef struct
 } srsvm_instruction;
 
 bool srsvm_opcode_load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *instruction);
+
+bool load_builtin_opcodes(srsvm_opcode_map *map);

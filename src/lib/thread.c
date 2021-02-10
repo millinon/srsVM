@@ -24,7 +24,8 @@ srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_ad
 
         srsvm_stack_frame *base_frame = malloc(sizeof(srsvm_stack_frame));
         if(base_frame != NULL){
-            base_frame->PC = start_addr;
+            //base_frame->PC = start_addr;
+            base_frame->next_PC = start_addr;
             base_frame->spilled = NULL;
             base_frame->last_spilled = NULL;
             base_frame->next = NULL;
@@ -148,12 +149,12 @@ bool srsvm_call(srsvm_vm *vm, srsvm_thread *thread, const srsvm_ptr addr)
 
         last_frame->next = new_frame;
 
-        new_frame->PC = addr;
+        new_frame->next_PC = addr;
 
         new_frame->spilled = NULL;
         new_frame->last_spilled = NULL;
 
-        thread->PC = addr;
+        thread->next_PC = addr;
 
         success = true;
     }
@@ -173,7 +174,7 @@ bool srsvm_ret(srsvm_vm *vm, srsvm_thread *thread)
         thread->call_stack.top = last_frame->last;
         thread->call_stack.top->next = NULL;
 
-        thread->PC = thread->call_stack.top->PC;
+        thread->next_PC = thread->call_stack.top->next_PC;
 
         srsvm_spilled_register *next_reg;
         for(srsvm_spilled_register *reg = last_frame->spilled; reg != NULL; reg = next_reg){
@@ -219,7 +220,7 @@ static void srsvm_hosted_fault_handler(srsvm_vm *vm, srsvm_thread *thread)
 
             while(! thread->is_halted && prev_frame->next == handler_frame){
                 if(srsvm_opcode_load_instruction(vm, thread->PC, &instruction)){
-                    thread->PC = thread->PC + sizeof(instruction.opcode) + sizeof(srsvm_word) * instruction.argc;
+                    thread->next_PC = thread->PC + sizeof(instruction.opcode) + sizeof(srsvm_word) * instruction.argc;
 
                     srsvm_vm_execute_instruction(vm, thread, &instruction);
                 }
@@ -236,7 +237,7 @@ static void srsvm_hosted_fault_handler(srsvm_vm *vm, srsvm_thread *thread)
 void srsvm_thread_set_fault_handler_hosted(srsvm_thread *thread, const srsvm_ptr handler_address)
 {
     if(thread != NULL){
-        dbg_printf("setting fault handler for thread %p to hosted address " SWFX, thread, SW_PARAM(handler_address));
+        dbg_printf("setting fault handler for thread %p to hosted address " PRINT_WORD_HEX, thread, PRINTF_WORD_PARAM(handler_address));
 
         thread->fault_handler = srsvm_hosted_fault_handler;
         thread->fault_handler_addr = handler_address;

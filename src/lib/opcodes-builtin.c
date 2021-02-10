@@ -220,6 +220,26 @@ void builtin_MOD_LOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc,
     }
 }
 
+void builtin_CMOD_LOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *dest_reg = register_lookup(vm, thread, argv[0]);
+    srsvm_word dest_slot = argv[1];
+    srsvm_register *mod_name_reg = register_lookup(vm, thread, argv[2]);
+
+    if(mod_name_reg != NULL && dest_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
+        srsvm_module *mod = srsvm_vm_load_module_slot(vm, mod_name_reg->value.str, dest_slot);
+
+        if(mod != NULL){
+            if(! load_word(dest_reg, mod->id, 0)){
+                set_register_error_bit(dest_reg, "Failed to copy module ID to register");
+                srsvm_vm_unload_module(vm, mod);
+            }
+        } else {
+            set_register_error_bit(dest_reg, "Failed to load module");
+        }
+    }
+}
+
 void builtin_MOD_UNLOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
 {
     srsvm_register *mod_id_reg = register_lookup(vm, thread, argv[0]);
@@ -234,6 +254,22 @@ void builtin_MOD_UNLOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word arg
             if(mod != NULL){
                 srsvm_vm_unload_module(vm, mod);
             }
+        }
+    }
+}
+
+void builtin_CMOD_UNLOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_word mod_id = argv[0];
+
+    if(mod_id > SRSVM_MODULE_MAX_COUNT){
+        thread->has_fault = true;
+        thread->fault_str = "Attempt to unload an invalid module ID";
+    } else {
+        srsvm_module *mod = vm->modules[mod_id];
+
+        if(mod != NULL){
+            srsvm_vm_unload_module(vm, mod);
         }
     }
 }
@@ -272,9 +308,52 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
             }
         }
     }
-
 }
 
+void builtin_CMOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_word mod_id = argv[0];
+    srsvm_word mod_opcode = argv[1];
+
+    srsvm_word shifted_argc = argc - 2;
+
+    if(mod_id > SRSVM_MODULE_MAX_COUNT){
+        thread->has_fault = true;
+        thread->fault_str = "Attempt to unload an invalid module ID";
+    } else {
+        srsvm_module *mod = vm->modules[mod_id];
+
+        if(mod != NULL){
+            srsvm_opcode *opcode = srsvm_vm_load_module_opcode(vm, mod, mod_opcode);
+
+            if(opcode != NULL){
+                if(shifted_argc < opcode->argc_min || shifted_argc > opcode->argc_max){
+                    thread->has_fault = true;
+                    thread->fault_str = "Wrong number of arguments for module opcode";
+                } else {
+                    opcode->func(vm, thread, shifted_argc, argv + 2);
+                }
+            } else {
+                thread->has_fault = true;
+                thread->fault_str = "Attempt to run an invalid opcode from a module";
+            }
+        } else {
+            thread->has_fault = true;
+            thread->fault_str = "Attempt to run an opcode from an unloaded module";
+        }
+    }
+}
+
+void builtin_MOD_UNLOAD_ALL(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    for(srsvm_word mod_id = 0; mod_id < SRSVM_MODULE_MAX_COUNT; mod_id++){
+        srsvm_module *mod = vm->modules[mod_id];
+
+        if(mod != NULL){
+            srsvm_vm_unload_module(vm, mod);
+        }
+    }
+}
 
 void builtin_JMP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
 {
@@ -355,7 +434,7 @@ void builtin_INCR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, con
 {
     srsvm_register *reg = register_lookup(vm, thread, argv[0]);
 
-    if(reg != NULL){
+    if(reg != NULL && !fault_on_not_writable(thread, reg)){
         srsvm_word val = reg->value.word + 1;
 
         if(! load_word(reg, val, 0)){
@@ -368,7 +447,7 @@ void builtin_DECR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, con
 {
     srsvm_register *reg = register_lookup(vm, thread, argv[0]);
 
-    if(reg != NULL){
+    if(reg != NULL && !fault_on_not_writable(thread, reg)){
         srsvm_word val = reg->value.word - 1;
 
         if(! load_word(reg, val, 0)){
@@ -383,10 +462,10 @@ void builtin_WORD_EQ(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, 
     srsvm_register *a_reg = register_lookup(vm, thread, argv[1]);
     srsvm_register *b_reg = register_lookup(vm, thread, argv[2]);
 
-    if(dest_reg != NULL && a_reg != NULL && b_reg != NULL){
+    if(dest_reg != NULL && a_reg != NULL && b_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
         srsvm_word a = a_reg->value.word;
         srsvm_word b = b_reg->value.word;
-            
+
         load_bit(dest_reg, a == b, 0);
     }
 }
@@ -400,14 +479,86 @@ void builtin_SLEEP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, co
     }
 }
 
-static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, const unsigned short argc_min, const unsigned short argc_max, srsvm_opcode_func* func)
+void builtin_CJMP_BACK(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_ptr_offset offset = -1 * argv[0];
+
+    if(offset != 0){
+        thread->next_PC = thread->PC + offset;
+    }
+}
+
+void builtin_CJMP_BACK_IF(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_ptr_offset offset = -1 * argv[0];
+    srsvm_register *cond_reg = register_lookup(vm, thread, argv[1]);
+
+    if(cond_reg != NULL && cond_reg->value.bit){
+        if(offset != 0){
+            thread->next_PC = thread->PC + offset;
+        }
+    }
+}
+
+void builtin_CJMP_BACK_ERR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_ptr_offset offset = -1 * argv[0];
+    srsvm_register *cond_reg = register_lookup(vm, thread, argv[1]);
+
+    if(cond_reg != NULL && cond_reg->error_flag){
+        if(offset != 0){
+            thread->next_PC = thread->PC + offset;
+        }
+    }
+}
+
+void builtin_CJMP_FORWARD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_ptr_offset offset = argv[0];
+
+    if(offset != 0){
+        thread->next_PC = thread->PC + offset;
+    }
+}
+
+void builtin_CJMP_FORWARD_IF(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_ptr_offset offset = argv[0];
+    srsvm_register *cond_reg = register_lookup(vm, thread, argv[1]);
+
+    if(cond_reg != NULL && cond_reg->value.bit){
+        if(offset != 0){
+            thread->next_PC = thread->PC + offset;
+        }
+    }
+}
+
+void builtin_CJMP_FORWARD_ERR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_ptr_offset offset = argv[0];
+    srsvm_register *cond_reg = register_lookup(vm, thread, argv[1]);
+
+    if(cond_reg != NULL && cond_reg->error_flag){
+        if(offset != 0){
+            thread->next_PC = thread->PC + offset;
+        }
+    }
+}
+
+static bool register_opcode(srsvm_opcode_map *map, srsvm_word code, const char* name, const unsigned short argc_min, const unsigned short argc_max, srsvm_opcode_func* func)
 {
     bool success = false;
 
-    if(strlen(name) > 0 && opcode_lookup_by_name(vm->opcode_map, name) != NULL){
-
-    } else if(opcode_lookup_by_code(vm->opcode_map, code) != NULL){
-
+    if((code & OPCODE_ARGC_MASK) != 0){
+        dbg_printf("Error: opcode " PRINT_WORD_HEX " & OPCODE_ARGC_MASK != 0; opcode will not be called.", PRINTF_WORD_PARAM(code));
+    } else if(argc_min > MAX_INSTRUCTION_ARGS){
+        dbg_printf("Error: opcode " PRINT_WORD_HEX " has min argc %hu, > %u", PRINTF_WORD_PARAM(code), argc_min, MAX_INSTRUCTION_ARGS);
+    } else if(argc_max > MAX_INSTRUCTION_ARGS){
+        dbg_printf("Error: opcode " PRINT_WORD_HEX " has max argc %hu, > %u", PRINTF_WORD_PARAM(code), argc_max, MAX_INSTRUCTION_ARGS);
+    } else if(strlen(name) > 0 && opcode_lookup_by_name(map, name) != NULL){
+        dbg_printf("Error: opcode " PRINT_WORD_HEX " has duplicate mnemonic %s", PRINTF_WORD_PARAM(code), name);
+    } else if(opcode_lookup_by_code(map, code) != NULL){
+        dbg_printf("Error: opcode " PRINT_WORD_HEX " has duplicate code number", PRINTF_WORD_PARAM(code));
     } else {
         srsvm_opcode *op;
 
@@ -424,7 +575,7 @@ static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, con
             op->argc_max = argc_max;
             op->func = func;
 
-            if(! opcode_map_insert(vm->opcode_map, op)){
+            if(! opcode_map_insert(map, op)){
 
             } else {
                 success = true;
@@ -435,12 +586,12 @@ static bool register_opcode(srsvm_vm *vm, srsvm_word code, const char* name, con
     return success;
 }
 
-bool load_builtin_opcodes(srsvm_vm *vm)
+bool load_builtin_opcodes(srsvm_opcode_map *map)
 {
     bool success = true;
 
 #define REGISTER_OPCODE(c,n,a_min,a_max) do { \
-    if(! register_opcode(vm,c,#n,a_min,a_max,&builtin_##n)) { success = false; } \
+    if(! register_opcode(map,c,#n,a_min,a_max,&builtin_##n)) { success = false; } \
 } while(0)
 
 #include "srsvm/opcodes-builtin.h"

@@ -55,10 +55,10 @@ static srsvm_opcode_map_node *search_by_name(const srsvm_opcode_map *map, const 
     int cmp_result;
 
     while(node != NULL){
-        cmp_result = strncmp(node->opcode->name, opcode_name, sizeof(node->opcode->name));
+        cmp_result = srsvm_strcasecmp(opcode_name, node->opcode->name);
         
         if(cmp_result == 0){
-            break;
+            return node;
         } else if(cmp_result < 0){
             node = node->name_lchild;
         } else {
@@ -76,7 +76,7 @@ static srsvm_opcode_map_node *search_by_code(const srsvm_opcode_map *map, const 
     while(node != NULL){
         if(node->opcode->code == opcode_code){
             return node;
-        } else if(node->opcode->code == opcode_code){
+        } else if(node->opcode->code > opcode_code){
             node = node->code_lchild;
         } else {
             node = node->code_rchild;
@@ -145,7 +145,7 @@ bool opcode_map_insert(srsvm_opcode_map *map, srsvm_opcode* opcode)
                     srsvm_opcode_map_node *parent_node = map->by_name_root;
 
                     while(parent_node != NULL){
-                        int cmp_result = strncmp(opcode->name, node->opcode->name, sizeof(opcode->name));
+                        int cmp_result = srsvm_strncasecmp(opcode->name, parent_node->opcode->name, sizeof(opcode->name));
 
                         if(cmp_result < 0){
                             if(parent_node->name_lchild == NULL){

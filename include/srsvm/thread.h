@@ -21,7 +21,7 @@ typedef struct srsvm_stack_frame srsvm_stack_frame;
 
 struct srsvm_stack_frame
 {
-    srsvm_ptr PC;
+    srsvm_ptr next_PC;
 
     srsvm_spilled_register *spilled;
     srsvm_spilled_register *last_spilled;

@@ -8,11 +8,22 @@
 #include "srsvm/mmu.h"
 #include "srsvm/vm.h"
 
+void mod_tree_free(const char* key, void* value, void* arg)
+{
+    if(value != NULL){
+        srsvm_module_free(value);
+    }
+}
+
 void srsvm_vm_free(srsvm_vm *vm)
 {
     if(vm != NULL){
         if(vm->opcode_map != NULL) srsvm_opcode_map_free(vm->opcode_map);
-        if(vm->module_map != NULL) srsvm_module_map_free(vm->module_map);
+        if(vm->module_map != NULL)
+        {
+            srsvm_string_map_walk(vm->module_map, mod_tree_free, NULL);
+            srsvm_string_map_free(vm->module_map, false);
+        }
         if(vm->mem_root != NULL) srsvm_mmu_free_force(vm->mem_root);
 
         for(int i = 0; i < SRSVM_REGISTER_MAX_COUNT; i++){
@@ -67,11 +78,11 @@ srsvm_vm *srsvm_vm_alloc(void)
 
         if((vm->opcode_map = srsvm_opcode_map_alloc()) == NULL){
             goto error_cleanup;
-        } else if((vm->module_map = srsvm_module_map_alloc()) == NULL){
+        } else if((vm->module_map = srsvm_string_map_alloc(true)) == NULL){
             goto error_cleanup;
         } else if((vm->mem_root = srsvm_mmu_alloc_virtual(NULL, SRSVM_MAX_PTR, 0)) == NULL){
             goto error_cleanup;
-        } else if(! load_builtin_opcodes(vm)){
+        } else if(! load_builtin_opcodes(vm->opcode_map)){
             goto error_cleanup;
         }
     }
@@ -92,13 +103,13 @@ bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsv
 
     if(opcode != NULL){
         if(strlen(opcode->name) > 0){
-            dbg_printf("resolved opcode %s/" SWFX, opcode->name, SW_PARAM(opcode->code));
+            dbg_printf("resolved opcode %s/" PRINT_WORD_HEX, opcode->name, PRINTF_WORD_PARAM(opcode->code));
         } else {
-            dbg_printf("resolved opcode" SWFX, SW_PARAM(opcode->code));
+            dbg_printf("resolved opcode" PRINT_WORD_HEX, PRINTF_WORD_PARAM(opcode->code));
         }
 
         if(instruction->argc < opcode->argc_min || instruction->argc > opcode->argc_max){
-            dbg_printf("invalid number of arguments " SWF ", accepted range: [%hu,%hu]", SW_PARAM(instruction->argc), opcode->argc_min, opcode->argc_max);
+            dbg_printf("invalid number of arguments " PRINT_WORD ", accepted range: [%hu,%hu]", PRINTF_WORD_PARAM(instruction->argc), opcode->argc_min, opcode->argc_max);
 
             thread->fault_str = "Illegal instruction length";
             thread->has_fault = true;
@@ -110,7 +121,7 @@ bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsv
             success = true;
         }
     } else {
-        dbg_printf("failed to locate opcode " SWFX, SW_PARAM(instruction->opcode));
+        dbg_printf("failed to locate opcode " PRINT_WORD_HEX, PRINTF_WORD_PARAM(instruction->opcode));
 
         thread->fault_str = "Illegal instruction";
         thread->has_fault = true;
@@ -268,7 +279,7 @@ srsvm_module *srsvm_vm_load_module(srsvm_vm *vm, const char* module_name)
     char* file_path = NULL;
     char* prog_cwd = NULL;
 
-    if((mod = srsvm_module_lookup(vm->module_map, module_name)) != NULL){
+    if((mod = srsvm_string_map_lookup(vm->module_map, module_name)) != NULL){
         mod->ref_count++;
     } else {
         prog_cwd = srsvm_getcwd();
@@ -292,10 +303,11 @@ search_again:
             if(found_slot){
                 mod = srsvm_module_alloc(module_name, file_path, mod_id);
 
-                if(mod == NULL || !srsvm_module_map_insert(vm->module_map, mod)){
+                if(mod == NULL || !srsvm_string_map_insert(vm->module_map, mod->name, mod)){
                     if(search_multilib){
                         if(mod != NULL){
                             srsvm_module_free(mod);
+                            mod = NULL;
                         }
                         search_multilib = false;
                         goto search_again;
@@ -326,6 +338,85 @@ error_cleanup:
     return NULL;
 }
 
+srsvm_module *srsvm_vm_load_module_slot(srsvm_vm *vm, const char* module_name, const srsvm_word slot_num)
+{
+    srsvm_module *mod = NULL;
+
+    char* file_path = NULL;
+    char* prog_cwd = NULL;
+
+    if(slot_num < SRSVM_MODULE_MAX_COUNT){
+        if(vm->modules[slot_num] != NULL){
+            mod = srsvm_string_map_lookup(vm->module_map, module_name);
+
+            if(mod != NULL){
+                if(mod->id ==  slot_num){
+                    return mod;
+                } else {
+                    return NULL;
+                }
+            } else {
+                return NULL;
+            }
+        } else if((mod = srsvm_string_map_lookup(vm->module_map, module_name)) != NULL){
+            mod->ref_count++;
+        } else {
+            prog_cwd = srsvm_getcwd();
+
+            bool search_multilib = true;
+
+search_again:
+            file_path = srsvm_module_find(module_name, prog_cwd, vm->module_search_path, search_multilib);
+
+            if(file_path != NULL){
+                bool found_slot = false;
+                srsvm_word mod_id;
+                for(int i = 0; i < SRSVM_MODULE_MAX_COUNT; i++){
+                    if(vm->modules[i] == NULL){
+                        mod_id = i;
+                        found_slot = true;
+                        break;
+                    }
+                }
+
+                if(found_slot){
+                    mod = srsvm_module_alloc(module_name, file_path, mod_id);
+
+                    if(mod == NULL || !srsvm_string_map_insert(vm->module_map, mod->name, mod)){
+                        if(search_multilib){
+                            if(mod != NULL){
+                                srsvm_module_free(mod);
+                            }
+                            search_multilib = false;
+                            goto search_again;
+                        } else goto error_cleanup;
+                    }
+                } else {
+                    goto error_cleanup;
+                }
+            } else {
+                goto error_cleanup;
+            }
+        }
+    }
+
+    return mod;
+
+error_cleanup:
+    if(prog_cwd != NULL){
+        free(prog_cwd);
+    }
+
+    if(file_path != NULL){
+        free(file_path);
+    }
+    if(mod != NULL){
+        srsvm_module_free(mod);
+    }
+
+    return NULL;
+}
+
 void srsvm_vm_unload_module(srsvm_vm *vm, srsvm_module *mod)
 {
     mod->ref_count--;
@@ -333,7 +424,7 @@ void srsvm_vm_unload_module(srsvm_vm *vm, srsvm_module *mod)
     if(mod->ref_count == 0){
         vm->modules[mod->id] = NULL;
 
-        srsvm_module_map_remove(vm->module_map, mod->name);
+        srsvm_string_map_remove(vm->module_map, mod->name, false);
 
         srsvm_module_free(mod);
     }
@@ -344,7 +435,7 @@ srsvm_opcode *srsvm_vm_load_module_opcode(srsvm_vm *vm, srsvm_module *mod, const
     srsvm_opcode *op = NULL;
 
     if(mod != NULL){
-        dbg_printf("attempting to load opcode " SWFX " from module %s", SW_PARAM(opcode), mod->name);
+        dbg_printf("attempting to load opcode " PRINT_WORD_HEX " from module %s", PRINTF_WORD_PARAM(opcode), mod->name);
 
         op = opcode_lookup_by_code(mod->opcode_map, opcode);
     }
@@ -367,17 +458,17 @@ srsvm_register *srsvm_vm_register_lookup(const srsvm_vm *vm, srsvm_thread *threa
 {
     srsvm_register *reg = NULL;
 
-   if(index < SRSVM_REGISTER_MAX_COUNT){
+    if(index < SRSVM_REGISTER_MAX_COUNT){
         reg = vm->registers[index];
 
         if(reg == NULL){
             thread->has_fault = true;
             thread->fault_str = "Unallocated register accessed";
         }
-   } else {
+    } else {
         thread->has_fault = true;
         thread->fault_str = "Invalid register index specified";
-   }
+    }
 
     return reg;
 }
@@ -424,7 +515,7 @@ CONST_ALLOCATOR(unsigned __int128, u128, U128);
 CONST_ALLOCATOR(__int128, i128, I128);
 #endif
 #undef CONST_ALLOCATOR
-    
+
 srsvm_constant_value *srsvm_vm_alloc_const_str(srsvm_vm *vm, const srsvm_word index, const char* value)\
 {
     srsvm_constant_value *c = NULL;
@@ -477,7 +568,7 @@ bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program)
             }
 
             srsvm_literal_memory_specification *lmem = program->literal_memory;
-            
+
             for(int i = 0; lmem != NULL && i < program->num_lmem_segments; i++){
                 srsvm_memory_segment *lmem_seg = srsvm_mmu_alloc_literal(vm->mem_root, lmem->size, lmem->start_address);
 
@@ -497,48 +588,48 @@ bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program)
             }
 
             srsvm_constant_specification *c = program->constants;
-            
+
             for(int i = 0; c != NULL && i < program->num_constants; i++){
                 srsvm_constant_value *cv = &c->const_val;
 
                 switch(cv->type){
-					#define LOADER(field, type) \
-                        case type: \
-						if(srsvm_vm_alloc_const_##field(vm, c->const_slot, cv->field) == NULL) { \
-							return false; \
-						} \
-						break;
-					
-					LOADER(word, WORD);
-					LOADER(ptr, PTR);
-					LOADER(ptr_offset, PTR_OFFSET);
-					LOADER(bit, BIT);
-					LOADER(u8, U8);
-					LOADER(i8, I8);
-					LOADER(u16, U16);
-					LOADER(i16, I16);
+#define LOADER(field, type) \
+                    case type: \
+                               if(srsvm_vm_alloc_const_##field(vm, c->const_slot, cv->field) == NULL) { \
+                                   return false; \
+                               } \
+                    break;
+
+                    LOADER(word, WORD);
+                    LOADER(ptr, PTR);
+                    LOADER(ptr_offset, PTR_OFFSET);
+                    LOADER(bit, BIT);
+                    LOADER(u8, U8);
+                    LOADER(i8, I8);
+                    LOADER(u16, U16);
+                    LOADER(i16, I16);
 #if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
-					LOADER(u32, U32);
-					LOADER(i32, I32);
-					LOADER(f32, F32);
+                    LOADER(u32, U32);
+                    LOADER(i32, I32);
+                    LOADER(f32, F32);
 #endif
 #if WORD_SIZE == 64 || WORD_SIZE == 128
-					LOADER(u64, U64);
-					LOADER(i64, I64);
-					LOADER(f64, F64);
+                    LOADER(u64, U64);
+                    LOADER(i64, I64);
+                    LOADER(f64, F64);
 #endif
 #if WORD_SIZE == 128
-					LOADER(u128, U128);
-					LOADER(i128, I128);
+                    LOADER(u128, U128);
+                    LOADER(i128, I128);
 #endif
-					LOADER(str, STR);
+                    LOADER(str, STR);
 #undef LOADER
-					default:
-						return false;
-				}
-			
-				c = c->next;
-			}
+                    default:
+                    return false;
+                }
+
+                c = c->next;
+            }
 
             srsvm_thread *thread = srsvm_vm_alloc_thread(vm, program->metadata->entry_point);
 
@@ -548,9 +639,9 @@ bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program)
                 vm->main_thread = thread;
             }
 
-			success = true;
-		}
-	}
+            success = true;
+        }
+    }
 
-	return success;
+    return success;
 }

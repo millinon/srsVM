@@ -6,7 +6,7 @@
 
 srsvm_register *srsvm_register_alloc(const char* name, const srsvm_word index)
 {
-    dbg_printf("allocating register %s at index " SWF, name, SW_PARAM(index));
+    dbg_printf("allocating register %s at index " PRINT_WORD, name, PRINTF_WORD_PARAM(index));
 
     srsvm_register *reg = NULL;
 

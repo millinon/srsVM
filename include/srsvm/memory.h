@@ -15,6 +15,9 @@ typedef int16_t srsvm_ptr_offset;
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR UINT16_MAX
 
+#define SRSVM_MIN_PTR_OFF INT16_MIN
+#define SRSVM_MAX_PTR_OFF INT16_MAX
+
 #elif WORD_SIZE == 32
 
 typedef uint32_t srsvm_ptr;
@@ -23,6 +26,9 @@ typedef int32_t srsvm_ptr_offset;
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR UINT32_MAX
 
+#define SRSVM_MIN_PTR_OFF INT32_MIN
+#define SRSVM_MAX_PTR_OFF INT32_MAX
+
 #elif WORD_SIZE == 64
 
 typedef uint64_t srsvm_ptr;
@@ -30,6 +36,9 @@ typedef int64_t srsvm_ptr_offset;
 
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR UINT64_MAX
+
+#define SRSVM_MIN_PTR_OFF INT64_MIN
+#define SRSVM_MAX_PTR_OFF INT64_MAX
 
 #elif WORD_SIZE == 128
 
@@ -40,6 +49,10 @@ typedef __int128 srsvm_ptr_offset;
 #define SRSVM_MAX_PTR ((\
             ((unsigned __int128) 0xFFFFFFFFFFFFFFFFull) << 64) | \
             ((unsigned __int128) 0xFFFFFFFFFFFFFFFFull))
+
+#define SRSVM_MAX_PTR_OFF (((__int128)0x7FFFFFFFFFFFFFFFull << 64) + 0xFFFFFFFFFFFFFFFFull)
+#define SRSVM_MIN_PTR_OFF (((__int128)-1) - SRSVM_MAX_PTR_OFF)
+
 #endif
 
 struct srsvm_memory_segment

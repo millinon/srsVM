@@ -104,7 +104,7 @@ srsvm_program_metadata* srsvm_program_metadata_alloc(void)
 
     if(metadata != NULL){
         memset(metadata, 0, sizeof(srsvm_program_metadata));
-        strncpy(metadata->magic, "SRS", sizeof(metadata->magic));
+        strncpy(metadata->magic, "SRS", 3);
 #if defined(WORD_SIZE)
         metadata->word_size = WORD_SIZE;
 #endif
@@ -173,7 +173,7 @@ static bool deserialize_metadata(FILE *stream, srsvm_program *program)
             }
 
             if(metadata->magic[0] == '#' && metadata->magic[1] == '!'){
-                strncpy(metadata->shebang, metadata->magic, sizeof(metadata->magic));
+                strcpy(metadata->shebang, metadata->magic);
 
                 if(fgets(metadata->shebang + sizeof(metadata->magic), PATH_MAX - sizeof(metadata->magic), stream) != metadata->shebang + sizeof(metadata->magic)){
                     goto error_cleanup;
@@ -191,6 +191,11 @@ static bool deserialize_metadata(FILE *stream, srsvm_program *program)
                 goto error_cleanup;
             }
 #if defined(WORD_SIZE)
+            if(metadata->word_size != WORD_SIZE){
+                dbg_printf("Failed to load program: wrong word size (expected %u, got %u)", WORD_SIZE, metadata->word_size);
+                goto error_cleanup;
+            }
+
             if(fread(&metadata->entry_point, sizeof(metadata->entry_point), 1, stream) < 1){
                 goto error_cleanup;
             } else {
@@ -231,6 +236,8 @@ static bool deserialize_registers(FILE *stream, srsvm_program *program)
             if(program->num_registers > SRSVM_REGISTER_MAX_COUNT){
                 goto error_cleanup;
             }
+            
+            dbg_printf("register count: %d", program->num_registers);
 
             for(uint16_t i = 0; i < program->num_registers; i++){
                 reg = srsvm_program_register_alloc();
@@ -433,7 +440,7 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
         }
 
         if(program->constants_compressed){
-#if SRSVM_SUPPORT_COMPRESSION
+#if defined(SRSVM_SUPPORT_COMPRESSION)
             void *compressed_data = malloc(program->constants_compressed_size);
 
             if(compressed_data == NULL){

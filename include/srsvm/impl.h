@@ -52,6 +52,9 @@ bool srsvm_directory_exists(const char* dir_name);
 bool srsvm_file_exists(const char* file_name);
 char *srsvm_path_combine(const char* path_1, const char* path_2);
 
+int srsvm_strcasecmp(const char* a, const char* b);
+int srsvm_strncasecmp(const char* a, const char* b, const size_t count);
+
 #if defined(SRSVM_SUPPORT_COMPRESSION)
 void *srsvm_zlib_deflate(const void* data, size_t *compressed_size, const size_t original_size);
 void *srsvm_zlib_inflate(const void* data, const size_t compressed_size, const size_t original_size);
