@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "srsvm/config.h"
 #include "srsvm/debug.h"
 #include "srsvm/mmu.h"
 #include "srsvm/vm.h"
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]){
         goto cleanup;
     }
 
-    const char* mod_path = getenv("SRSVM_LIB_PATH");
+    const char* mod_path = getenv(SRSVM_MOD_PATH_ENV_NAME);
 
     if(mod_path != NULL){
         srsvm_vm_set_module_search_path(vm, mod_path);

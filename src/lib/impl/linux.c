@@ -11,14 +11,15 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#if defined(SRSVM_SUPPORT_COMPRESSION)
-#include <zlib.h>
-#endif
-
+#include "srsvm/config.h"
 #include "srsvm/debug.h"
 #include "srsvm/impl.h"
 #if defined(WORD_SIZE)
 #include "srsvm/thread.h"
+#endif
+
+#if defined(SRSVM_SUPPORT_COMPRESSION)
+#include <zlib.h>
 #endif
 
 bool srsvm_lock_initialize(srsvm_lock *lock)
@@ -129,7 +130,11 @@ bool srsvm_native_module_load(srsvm_native_module_handle *handle, const char* fi
 {
     bool success = false;
 
-    *handle = dlopen(filename, RTLD_NOW);
+    *handle = dlopen(filename, RTLD_LAZY);
+
+    if(*handle == NULL){
+        dbg_printf("load failed: %s\n", dlerror());
+    }
 
     success = *handle != NULL;
 
@@ -138,7 +143,8 @@ bool srsvm_native_module_load(srsvm_native_module_handle *handle, const char* fi
 
 void srsvm_native_module_unload(srsvm_native_module_handle *handle)
 {
-    dlclose(*handle);
+    if(handle != NULL)
+        dlclose(handle);
 }
 
 typedef bool (*opcode_enumerator)(srsvm_module_opcode_loader, void*);
@@ -151,7 +157,7 @@ bool srsvm_native_module_load_opcodes(srsvm_native_module_handle *handle, srsvm_
     bool success = false;
 
     if(srsvm_native_module_supports_word_size(handle, WORD_SIZE)){
-        opcode_enumerator enumerator = dlsym(handle, "srsvm_enumerate_opcodes_" STR(WORD_SIZE));
+        opcode_enumerator enumerator = dlsym(*handle, "srsvm_enumerate_opcodes_" STR(WORD_SIZE));
 
         if(enumerator != NULL){
             success = enumerator(loader, arg);
@@ -167,7 +173,7 @@ bool srsvm_native_module_supports_word_size(srsvm_native_module_handle *handle, 
 {
     bool success = false;
 
-    word_size_check check = dlsym(handle, "srsvm_word_size_support");
+    word_size_check check = dlsym(*handle, "srsvm_word_size_support");
 
     if(check != NULL){
         success = check(word_size);

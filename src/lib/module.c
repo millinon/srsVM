@@ -7,8 +7,9 @@
 #include <pwd.h>
 
 #include "srsvm/config.h"
-
 #endif
+
+#include "srsvm/debug.h"
 
 #include "srsvm/module.h"
 
@@ -21,14 +22,16 @@ static bool load_opcode(void* arg, srsvm_opcode* opcode)
 
     bool success = false;
 
+    dbg_printf("got name %s", opcode->name);
+    
     if(strlen(opcode->name) > 0 && opcode_lookup_by_name(mod->opcode_map, opcode->name) != NULL){
-
+        dbg_puts("duplicate name");
     } else if(opcode_lookup_by_code(mod->opcode_map, opcode->code) != NULL){
-
+        dbg_puts("duplicate code");
     } else if(! opcode_map_insert(mod->opcode_map, opcode)) {
-
+        dbg_puts("insert failed");
     } else {
-        return true;
+        success = true;
     }
 
     return success;
@@ -50,7 +53,10 @@ srsvm_module *srsvm_module_alloc(const char* name, const char* filename, srsvm_w
             strncpy(mod->name, name, sizeof(mod->name));
 
             if(srsvm_native_module_load(&mod->handle, filename)){
+                dbg_puts("mod loaded");
+
                 if(! srsvm_native_module_supports_word_size(&mod->handle, WORD_SIZE)){
+                    dbg_puts("unsupported mod");
                     goto error_cleanup;
                 }
 
@@ -62,6 +68,7 @@ srsvm_module *srsvm_module_alloc(const char* name, const char* filename, srsvm_w
                     goto error_cleanup;
                 }
             } else {
+                dbg_puts("load failed");
                 goto error_cleanup;
             }
         } else {

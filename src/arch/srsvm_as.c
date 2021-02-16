@@ -275,8 +275,6 @@ int main(int argc, char *argv[]){
             line_buf[strcspn(line_buf, "\n")] = 0;
             line_buf[strcspn(line_buf, "\r")] = 0;
 
-            dbg_printf("line: %s\n", line_buf);
-
             if(! srsvm_asm_line_parse(asm_prog, line_buf, input_fname, line_num)){
                 have_fatal_error = true;
                 //break;

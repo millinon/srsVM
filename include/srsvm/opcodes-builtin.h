@@ -73,3 +73,6 @@ REGISTER_OPCODE(code++, WORD_EQ, 3, 3);
 code += 16;
 
 REGISTER_OPCODE(code++, PUTS, 1, 1);
+
+REGISTER_OPCODE(code++, PRINT_U8, 1, 1);
+REGISTER_OPCODE(code++, PRINT_U16, 1, 1);

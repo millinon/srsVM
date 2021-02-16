@@ -1,6 +1,7 @@
 .PHONY: clean-obj clean
 
-CFLAGS :=-I../../include -Wall -DSRSVM_SUPPORT_COMPRESSION -DWORD_SIZE=$(WORD_SIZE)
+CFLAGS := -I../../include -fpic -Wall -DSRSVM_INTERNAL -DWORD_SIZE=$(WORD_SIZE)
+LDFLAGS := -rdynamic -fvisibility=hidden
 
 all: release
 
@@ -58,4 +59,6 @@ clean-obj:
 	rm -rf obj
 
 clean: clean-obj
-	rm -f srsvm_$(WORD_SIZE) srsvm_as_$(WORD_SIZE)
+	for arch in 16 32 64 128; do \
+		rm -f srsvm_$$arch srsvm_as_$$arch ; \
+	done

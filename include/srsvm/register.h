@@ -20,16 +20,16 @@ typedef struct
         bool bit;
 
 #if WORD_SIZE == 16
-        uint16_t u16;
-        int16_t i16;
+        uint16_t u16[1];
+        int16_t i16[1];
 
         uint8_t u8[2];
         int8_t i8[2];
 #elif WORD_SIZE == 32
-        uint32_t u32;
-        int32_t i32;
+        uint32_t u32[1];
+        int32_t i32[1];
 
-        float f32;
+        float f32[1];
 
         uint16_t u16[2];
         int16_t i16[2];
@@ -37,10 +37,10 @@ typedef struct
         uint8_t u8[4];
         int8_t i8[4];
 #elif WORD_SIZE == 64
-        uint64_t u64;
-        int64_t i64;
+        uint64_t u64[1];
+        int64_t i64[1];
 
-        double f64;
+        double f64[1];
 
         uint32_t u32[2];
         int32_t i32[2];
@@ -53,8 +53,8 @@ typedef struct
         uint8_t u8[8];
         int8_t i8[8];
 #elif WORD_SIZE == 128        
-        unsigned __int128 u128;
-        __int128 i128;
+        unsigned __int128 u128[1];
+        __int128 i128[1];
 
         uint64_t u64[2];
         int64_t i64[2];

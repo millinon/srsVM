@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "srsvm/constant.h"
+#include "srsvm/debug.h"
 #include "srsvm/opcode-helpers.h"
 
 srsvm_constant_value *srsvm_const_alloc(srsvm_value_type type)
@@ -26,6 +27,7 @@ bool srsvm_const_load(srsvm_register *dest_reg, srsvm_constant_value *val, const
     bool success = false;
 
     if(dest_reg != NULL && val != NULL){
+        dbg_printf("const type = %u", val->type);
         switch(val->type){
             #define LOADER(name,flag) \
                 case flag: \

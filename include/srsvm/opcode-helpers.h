@@ -60,10 +60,17 @@ static inline bool clear_reg(srsvm_register *reg)
     if(offset >= (sizeof(reg->value.field) / sizeof(type))){ return false; } \
 } while(0)
 
+#define REG_READ_HELPER(name,type,field) \
+    static inline bool name(srsvm_register *reg, type* value, const srsvm_word offset) \
+    { \
+        ENSURE_SPACE(type,field); \
+        *value = *(type*)(&reg->value.field + offset); \
+        return true; \
+    }
+
 #define LITERAL_LOAD_HELPER(name,type,field) \
     static inline bool name(srsvm_register *reg, const type value, const srsvm_word offset) \
     { \
-        if(! clear_reg(reg)){ return false; } \
         ENSURE_WRITABLE(reg); \
         ENSURE_SPACE(type,field); \
         ((type*)&reg->value.field)[offset] = value; \
@@ -73,7 +80,6 @@ static inline bool clear_reg(srsvm_register *reg)
 #define MEM_LOAD_HELPER(name,type,field) \
     static inline bool name(const srsvm_vm *vm, srsvm_register *reg, const srsvm_ptr ptr, const srsvm_word offset) \
     { \
-        if(! clear_reg(reg)){ return false; } \
         ENSURE_WRITABLE(reg); \
         ENSURE_SPACE(type, field); \
         return srsvm_mmu_load(vm->mem_root, ptr, sizeof(type), &reg->value.field + offset); \
@@ -86,6 +92,7 @@ static inline bool clear_reg(srsvm_register *reg)
     }
 
 #define MK_HELPERS(type,field) \
+    REG_READ_HELPER(reg_read_##field, type, field); \
     LITERAL_LOAD_HELPER(load_##field, type, field); \
     MEM_LOAD_HELPER(mem_load_##field , type, field); \
     MEM_STORE_HELPER(mem_store_##field , type, field); 
@@ -120,7 +127,7 @@ MK_HELPERS(uint16_t, u16);
 MK_HELPERS(int16_t, i16);
 
 MK_HELPERS(uint8_t, u8);
-MK_HELPERS(uint8_t, i8);
+MK_HELPERS(int8_t, i8);
 
 static inline bool load_str(srsvm_register *reg, const char* value, size_t len)
 {
@@ -173,5 +180,19 @@ static inline bool load_str_len(srsvm_register *reg, const char* value)
 
 static inline srsvm_register* register_lookup(const srsvm_vm *vm, srsvm_thread *thread, const srsvm_word register_id)
 {
-    return srsvm_vm_register_lookup(vm, thread, register_id);
+    srsvm_register *reg = NULL;
+
+    if(register_id< SRSVM_REGISTER_MAX_COUNT){
+        reg = vm->registers[register_id];
+
+        if(reg == NULL){
+            thread->has_fault = true;
+            thread->fault_str = "Unallocated register accessed";
+        }
+    } else {
+        thread->has_fault = true;
+        thread->fault_str = "Invalid register index specified";
+    }
+
+    return reg;
 }

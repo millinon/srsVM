@@ -40,7 +40,7 @@ void srsvm_vm_free(srsvm_vm *vm)
 
         for(int i = 0; i < SRSVM_MODULE_MAX_COUNT; i++){
             if(vm->modules[i] != NULL){
-                srsvm_module_free(vm->modules[i]);
+                //srsvm_module_free(vm->modules[i]);
             }
         }
 
@@ -390,6 +390,8 @@ search_again:
                             search_multilib = false;
                             goto search_again;
                         } else goto error_cleanup;
+                    } else {
+                        vm->modules[mod_id] = mod;
                     }
                 } else {
                     goto error_cleanup;
@@ -449,25 +451,6 @@ srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const sr
 
     if(vm->registers[index] == NULL){
         reg = (vm->registers[index] = srsvm_register_alloc(name, index));
-    }
-
-    return reg;
-}
-
-srsvm_register *srsvm_vm_register_lookup(const srsvm_vm *vm, srsvm_thread *thread, const srsvm_word index)
-{
-    srsvm_register *reg = NULL;
-
-    if(index < SRSVM_REGISTER_MAX_COUNT){
-        reg = vm->registers[index];
-
-        if(reg == NULL){
-            thread->has_fault = true;
-            thread->fault_str = "Unallocated register accessed";
-        }
-    } else {
-        thread->has_fault = true;
-        thread->fault_str = "Invalid register index specified";
     }
 
     return reg;

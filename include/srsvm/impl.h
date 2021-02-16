@@ -9,6 +9,8 @@
 #include "srsvm/word.h"
 #endif
 
+#include "srsvm/config.h"
+
 #ifdef __unix__
 
 #include "srsvm/impl/linux.h"

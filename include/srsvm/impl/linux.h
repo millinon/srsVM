@@ -2,7 +2,13 @@
 
 #include <pthread.h>
 
-#define SRSVM_MODULE_FILE_EXTENSION ".svm"
+#define SRSVM_MODULE_FILE_EXTENSION ".svmmod"
+
+#if defined(SRSVM_INTERNAL)
+#define SRSVM_EXPORT __attribute__((visibility("default"))) 
+#else
+#define SRSVM_EXPORT extern
+#endif
 
 typedef pthread_mutex_t srsvm_lock;
 

@@ -1,6 +1,6 @@
 .PHONY: clean-obj clean
 
-CFLAGS := -I../../include -Wall
+CFLAGS := -I../../include -Wall -fvisibility=hidden
 
 all: progs
 

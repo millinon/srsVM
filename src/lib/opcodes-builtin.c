@@ -284,7 +284,7 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
     if(mod_id_reg != NULL && mod_opcode_reg != NULL){
         if(mod_id_reg->value.word > SRSVM_MODULE_MAX_COUNT){
             thread->has_fault = true;
-            thread->fault_str = "Attempt to unload an invalid module ID";
+            thread->fault_str = "Attempt to call an invalid module ID";
         } else {
             srsvm_module *mod = vm->modules[mod_id_reg->value.word];
 
@@ -296,6 +296,8 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
                         thread->has_fault = true;
                         thread->fault_str = "Wrong number of arguments for module opcode";
                     } else {
+                        dbg_puts("calling mod func");
+
                         opcode->func(vm, thread, shifted_argc, argv + 2);
                     }
                 } else {
@@ -427,6 +429,24 @@ void builtin_PUTS(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, con
 
     if(src_str_reg != NULL){
         puts(src_str_reg->value.str);
+    }
+}
+
+void builtin_PRINT_U8(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *src_str_reg = register_lookup(vm, thread, argv[0]);
+
+    if(src_str_reg != NULL){
+        printf("%u\n", (unsigned char)(src_str_reg->value.u8[0]));
+    }
+}
+
+void builtin_PRINT_U16(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
+{
+    srsvm_register *src_str_reg = register_lookup(vm, thread, argv[0]);
+
+    if(src_str_reg != NULL){
+        printf("0x%x\n", src_str_reg->value.u16[0]);
     }
 }
 

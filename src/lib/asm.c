@@ -78,7 +78,7 @@ srsvm_assembly_program *srsvm_asm_program_alloc(srsvm_assembler_message_report_f
     LOAD_BUILTIN(CMOD_LOAD);
     LOAD_BUILTIN(CMOD_UNLOAD);
     LOAD_BUILTIN(MOD_UNLOAD_ALL);
-    LOAD_BUILTIN(MOD_OP);
+    LOAD_BUILTIN(CMOD_OP);
     LOAD_BUILTIN(NOP);
     LOAD_BUILTIN(JMP);
     LOAD_BUILTIN(JMP_IF);
@@ -330,7 +330,7 @@ static bool has_suffix(const char* str, const char* suffix, bool case_insensitiv
         size_t str_len = strlen(str);
         size_t suffix_len = strlen(suffix);
 
-        if(suffix_len >= str_len){
+        if(suffix_len <= str_len){
             if(case_insensitive){
                 match = srsvm_strncasecmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
             } else {
@@ -393,7 +393,8 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
                     raw = strndup(str_value, str_len - strlen("%u8"));
 
-                    if(sscanf(raw, "%" SCNu8, &value->u8) != 1){
+                    if(sscanf(raw, "0x%" SCNx8, &value->u8) != 1 &&
+                            sscanf(raw, "%" SCNu8, &value->u8) != 1){
                         srsvm_const_free(value);
                         value = NULL;
                     }
@@ -412,9 +413,12 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
                     raw = strndup(str_value, str_len - strlen("%u16"));
 
-                    if(sscanf(raw, "%" SCNu16, &value->u16) != 1){
+                    if(sscanf(raw, "0x%" SCNx16, &value->u16) != 1 &&
+                            sscanf(raw, "%" SCNu16, &value->u16) != 1){
                         srsvm_const_free(value);
                         value = NULL;
+                    } else {
+                        dbg_printf("got U16: %" PRIx16, value->u16);
                     }
 
                 } else if(has_suffix(str_value, "%i16", true)){
@@ -432,7 +436,8 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
                     raw = strndup(str_value, str_len - strlen("%u32"));
 
-                    if(sscanf(raw, "%" SCNu32, &value->u32) != 1){
+                    if(sscanf(raw, "0x%" SCNx32, &value->u32) != 1 &&
+                            sscanf(raw, "%" SCNu32, &value->u32) != 1){
                         srsvm_const_free(value);
                         value = NULL;
                     }
@@ -461,7 +466,8 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
                     raw = strndup(str_value, str_len - strlen("%u64"));
 
-                    if(sscanf(raw, "%" SCNu64, &value->u64) != 1){
+                    if(sscanf(raw, "0x%" SCNx64, &value->u64) != 1 &&
+                            sscanf(raw, "%" SCNu64, &value->u64) != 1){
                         srsvm_const_free(value);
                         value = NULL;
                     }
@@ -545,14 +551,23 @@ static srsvm_opcode* parse_opcode(const srsvm_opcode_map *opcode_map, const char
 {
     srsvm_opcode *opcode = NULL;
 
+    if(opcode_map == NULL){
+        dbg_puts("map null");
+    } else if(opcode_str == NULL){
+        dbg_puts("str null");
+    }
+
     if(opcode_map != NULL && opcode_str != NULL && strlen(opcode_str) > 0)
     {
         srsvm_word opcode_code;
 
-        if(! parse_unsigned_hex_word(opcode_str, &opcode_code)){
-            opcode = opcode_lookup_by_name(opcode_map, opcode_str);   
-        } else {
-            opcode = opcode_lookup_by_code(opcode_map, opcode_code);
+        if((opcode = opcode_lookup_by_name(opcode_map, opcode_str)) == NULL){
+
+            if(! parse_unsigned_hex_word(opcode_str, &opcode_code)){
+
+            } else {
+                opcode = opcode_lookup_by_code(opcode_map, opcode_code);
+            }
         }
     }
 
@@ -809,45 +824,55 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
 search_again:
                 mod_filename = srsvm_module_find(module, NULL, program->module_search_path, search_multilib);
 
-                if(mod_filename != NULL){
+                if(mod_filename == NULL){
+                    ERR_fmt("failed to locate module '%s'", module);
+                } else {
                     mod = srsvm_module_alloc(module, mod_filename, program->mod_map->count);
-                }
 
-                if(mod != NULL){
-                    if(! srsvm_string_map_insert(program->mod_map, module, mod)){
-                        srsvm_module_free(mod);
-                        mod = NULL;
-
-                        goto error_cleanup;
+                    if(mod == NULL){
+                        ERR_fmt("failed to load module file '%s'", mod_filename);
                     }
-                } else if(search_multilib && (mod_filename == NULL || mod == NULL)){
-                    search_multilib = false;
 
-                    goto search_again;
+                    if(mod != NULL){
+                        if((mod->tag = malloc(sizeof(asm_mod_tag))) == NULL){
+                            ERR_fmt("failed to allocate module tag: %s", strerror(errno));
+                        } else {
+                            ((asm_mod_tag*) mod->tag)->is_loaded = false;
+                        }
+                        
+                        mod->ref_count = 1;
+
+                        if(! srsvm_string_map_insert(program->mod_map, module, mod)){
+                            srsvm_module_free(mod);
+                            mod = NULL;
+
+                            goto error_cleanup;
+                        }
+                    } else if(search_multilib && (mod_filename == NULL || mod == NULL)){
+                        search_multilib = false;
+
+                        goto search_again;
+                    }
                 }
 
-                mod->ref_count = 1;
+                if(mod == NULL){
+                    ERR_fmt("failed to load module '%s'", module);
+                }
             } else {
                 mod = srsvm_string_map_lookup(program->mod_map, module);
 
                 if(mod == NULL){
-                    goto error_cleanup;
+                    ERR_fmt("failed to locate module '%s'", module);
                 }
 
                 mod->ref_count++;
             }
 
-            if(mod->tag == NULL){
-                if((mod->tag = malloc(sizeof(asm_mod_tag))) == NULL){
-                    ERR_fmt("failed to allocate module tag: %s", strerror(errno));
-                } else {
-                    ((asm_mod_tag*) mod->tag)->is_loaded = false;
-                }
-            }
-
             line->opcode = parse_opcode(mod->opcode_map, opcode);
 
-            mod_op_offset = 1;
+            //line->opcode = parse_opcode(mod->opcode_map, opcode);
+
+            mod_op_offset = 2;
         } else {
             line->module_name[0] = 0;
 
@@ -863,10 +888,12 @@ search_again:
     }
 
     line->argc = argc + mod_op_offset;
-    
-    if(line->argc < line->opcode->argc_min){
+
+    dbg_printf("line argc = " PRINT_WORD, PRINTF_WORD_PARAM(line->argc));
+
+    if(argc < line->opcode->argc_min){
         WARN_fmt("line has %lu args, outside expected range [%u, %u]", (unsigned long) argc, line->opcode->argc_min, line->opcode->argc_max);
-    } else if(line->argc > line->opcode->argc_max){
+    } else if(argc > line->opcode->argc_max){
         WARN_fmt("line has %lu args, outside expected range [%u, %u]", (unsigned long) argc, line->opcode->argc_min, line->opcode->argc_max);
     }
 
@@ -976,7 +1003,7 @@ search_again:
     program->last_line = line;
     line->next = NULL;
     program->line_count++;
-    
+
     return success;
 
 error_cleanup:
@@ -1007,7 +1034,8 @@ void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, char** s
             } while(path != NULL);
 
             char ** arr = malloc(path_count * sizeof(char*));
-            for(size_t i = 0; i < path_count; i++){
+            memset(arr, 0, (path_count * sizeof(char*)));
+            for(size_t i = 0; i < path_count - 1; i++){
                 arr[i] = strdup(search_path[i]);
             }
 
@@ -1060,7 +1088,7 @@ static bool flatten_registers(srsvm_assembly_program *program)
         srsvm_string_map_walk(program->reg_map, assign_next_value, &flat_data);
 
         qsort(flat_data.data, flat_data.count, sizeof(srsvm_assembly_register*), compare_registers);
-        
+
         dbg_printf("found %ld registers", flat_data.count);
 
         for(srsvm_word i = 0; i < flat_data.count; i++){
@@ -1207,10 +1235,11 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
             if(! srsvm_string_map_insert(program->reg_map, module_register->name, module_register)){
                 ERR_fmt("failed to map built-in $$MOD register: %s", strerror(errno));
             }
+            program->num_registers = 1;
         }
 
         srsvm_register_specification *assembled_mod_reg = NULL;
-        
+
         srsvm_assembly_line *line = NULL;
 
         mod_cache_data state_data;
@@ -1292,7 +1321,6 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 
         if(! flatten_constants(program)){
             ERR("failed to flatten program constants");
-            //goto error_cleanup;
         } else {
             srsvm_constant_specification *c_out =  out_program->constants;
 
@@ -1339,10 +1367,6 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                 state_data.next_slot = 0;
             }
 
-            if(line->argc < line_op->argc_min || line->argc > line_op->argc_max){
-                WARN_fmt("line opcode has %lu args, outside expected range [%u, %u]", (unsigned long) line->argc, line_op->argc_min, line_op->argc_max);
-            }
-
             if(strlen(line->module_name) > 0){
                 char mod_name_literal[SRSVM_MODULE_MAX_NAME_LEN+2] = { 0 };
                 snprintf(mod_name_literal, sizeof(mod_name_literal), "\"%s\"", line->module_name);
@@ -1350,7 +1374,7 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                 srsvm_assembly_constant *mod_name_const = srsvm_string_map_lookup(program->const_map, mod_name_literal);
 
                 srsvm_module *mod = srsvm_lru_cache_lookup(mod_cache, line->module_name);
-                asm_mod_tag *tag = mod->tag;
+                asm_mod_tag *tag;
 
                 if(mod == NULL){
                     mod = srsvm_string_map_lookup(program->mod_map, line->module_name);
@@ -1366,36 +1390,43 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                             ERR_fmt("cache insert failed for module '%s'", line->module_name);
                         } else {
                             tag->slot_num = state_data.next_slot++;
-                            tag->is_loaded = true;
+                            //tag->is_loaded = true;
                         }
                     }
                 } else {
                     tag = mod->tag;
                 }
 
-                if(line->pre_count + 2 > SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
-                    ERR_fmt("not enough space to insert module load '%s'", line->module_name);
-                } else {
-                    line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
-                    line->pre[line->pre_count].argv[0] = assembled_mod_reg->index;
-                    line->pre[line->pre_count].argv[1] = mod_name_const->slot_num;
-                    line->pre[line->pre_count].argc = 2;
+                if(! tag->is_loaded){
+                    if(line->pre_count + 2 > SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
+                        ERR_fmt("not enough space to insert module load '%s'", line->module_name);
+                    } else {
+                        line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
+                        line->pre[line->pre_count].argv[0] = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[1] = mod_name_const->slot_num;
+                        line->pre[line->pre_count].argc = 2;
 
-                    line->pre_count++;
+                        line->pre_count++;
 
-                    line->pre[line->pre_count].opcode = program->builtin_CMOD_LOAD->code;
-                    line->pre[line->pre_count].argv[0] = assembled_mod_reg->index;
-                    line->pre[line->pre_count].argv[1] = tag->slot_num;
-                    line->pre[line->pre_count].argv[2] = assembled_mod_reg->index;
-                    line->pre[line->pre_count].argc = 3;
+                        line->pre[line->pre_count].opcode = program->builtin_CMOD_LOAD->code;
+                        line->pre[line->pre_count].argv[0] = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[1] = tag->slot_num;
+                        line->pre[line->pre_count].argv[2] = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argc = 3;
 
-                    line->pre_count++;
+                        line->pre_count++;
+
+                        tag->is_loaded = true;
+                    }
                 }
 
-                line->assembled_instruction.opcode = program->builtin_MOD_OP->code;
-                line->assembled_instruction.argv[0] = line->opcode->code;
+                line->assembled_instruction.opcode = program->builtin_CMOD_OP->code;
+                line->assembled_instruction.argv[0] = tag->slot_num;
+                line->assembled_instruction.argv[1] = line_op->code;
+                dbg_printf("mod op code = " PRINT_WORD_HEX, PRINTF_WORD_PARAM(line_op->code));
+            } else {
+                line->assembled_instruction.opcode = line_op->code;
             }
-
 
             for(unsigned i = 0; i < line->num_register_refs; i++){
                 line->assembled_instruction.argv[line->register_references[i].arg_index] = line->register_references[i].reg->slot_num;
@@ -1404,8 +1435,8 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
             for(unsigned i = 0; i < line->num_constant_refs; i++){
                 line->assembled_instruction.argv[line->constant_references[i].arg_index] = line->constant_references[i].c->slot_num;
             }
-
-            line->assembled_instruction.opcode = line_op->code;
+            
+            //line->assembled_instruction.opcode = line_op->code;
             line->assembled_instruction.argc = line->argc;
 
             line->assembled_size = 0;
@@ -1508,8 +1539,7 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 
             for(line = program->lines; line != NULL; line = line->next){
                 for(int i = 0; i < line->pre_count; i++){
-                    *ptr = (OPCODE_MK_ARGC(line->pre[i].argc) | line->pre[i].opcode);
-                    ptr++;
+                    *(ptr++) = (OPCODE_MK_ARGC(line->pre[i].argc) | line->pre[i].opcode);
                     memcpy(ptr, &line->pre[i].argv, line->pre[i].argc * sizeof(srsvm_word));
                     ptr += line->pre[i].argc;
 
@@ -1522,11 +1552,10 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                     }
                 }
 
-                *ptr = (OPCODE_MK_ARGC(line->assembled_instruction.argc) | line->assembled_instruction.opcode);
-                ptr++;
+                *(ptr++) = (OPCODE_MK_ARGC(line->assembled_instruction.argc) | line->assembled_instruction.opcode);
                 memcpy(ptr, &line->assembled_instruction.argv, line->assembled_instruction.argc * sizeof(srsvm_word));
                 ptr += line->assembled_instruction.argc;
-
+                
                 if(word_alignment > 0){
                     padding_nops = ((word_alignment - (((1 + line->assembled_instruction.argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
                     for(int j = 0; j < padding_nops; j++){

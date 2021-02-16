@@ -6,8 +6,6 @@
 #define SRSVM_MODULE_MAX_COUNT (4 * WORD_SIZE)
 #define SRSVM_MODULE_MAX_NAME_LEN 256
 
-#define SRSVM_MODULE_FILE_EXTENSION ".svm"
-
 typedef struct
 {
     char name[SRSVM_MODULE_MAX_NAME_LEN];

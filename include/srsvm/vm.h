@@ -39,7 +39,6 @@ void srsvm_vm_free(srsvm_vm *vm);
 bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program);
 
 srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const srsvm_word index);
-srsvm_register *srsvm_vm_register_lookup(const srsvm_vm *vm, srsvm_thread* thread, const srsvm_word index);
 
 //bool load_builtin_opcodes(srsvm_vm *vm);
 

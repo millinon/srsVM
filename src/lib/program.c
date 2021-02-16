@@ -480,8 +480,6 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
                 memcpy(&c->const_val.type, decompressed_data + offset, sizeof(c->const_val.type));
                 offset += sizeof(c->const_val.type);
 
-                dbg_printf("got type: %d\n", c->const_val.type);
-
                 switch(c->const_val.type){
 
 #define LOADER(field,flag) case flag:\
