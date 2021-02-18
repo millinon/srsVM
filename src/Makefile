@@ -1,6 +1,6 @@
 .PHONY: clean all debug release install
 
-PREFIX := ${HOME}/.local
+PREFIX ?= ${HOME}/.local
 export PREFIX
 
 all: release

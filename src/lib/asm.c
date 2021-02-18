@@ -625,7 +625,7 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
 
     dbg_printf("lexing '%s'", writable_line);
 
-    for(size_t i = 0; i < line_len && lex_state != LEX_ERROR; i++){
+    for(size_t i = 0; i < line_len && lex_state != LEX_ERROR && lex_state != LEX_COMMENT; i++){
         char c = writable_line[i];
 
         if(c == 0) break;
@@ -696,11 +696,23 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
 
             case LEX_ARG:
                 if(argc >= MAX_INSTRUCTION_ARGS){
+                    dbg_printf("bailing on too many args: %d\n", argc);
                     argc = MAX_INSTRUCTION_ARGS;
                     lex_state = LEX_ERROR;
                 } else {
                     if(args[argc] == NULL){
-                        args[argc] = writable_line + i;
+                        if(! isspace(c) && c != ';'){
+                            dbg_printf("found arg at char '%c'", c);
+                            args[argc] = writable_line + i;
+                        }
+                    } else {
+                        if((isspace(c) || c == ';') && !in_arg_esc && !in_arg_str){
+                            writable_line[i] = 0;
+                            if(args[argc] != NULL){
+                                dbg_printf("ending arg at char '%c'", c);
+                                argc++;
+                            }
+                        }
                     }
 
                     if(in_arg_str){
@@ -714,7 +726,10 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
 
                                 case '"':
                                     in_arg_str = false;
-                                    argc++;
+                                    if(args[argc] != NULL){
+                                        dbg_printf("ending arg at char '%c'", c);
+                                        argc++;
+                                    }
                                     break;
                             }
                         }
@@ -722,8 +737,8 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
                         if(! in_arg_esc){
                             if(isspace(c)){
                                 writable_line[i] = 0;
-
                                 if(args[argc] != NULL){
+                                    dbg_printf("ending arg at char '%c'", c);
                                     argc++;
                                 }
                             } else {
@@ -735,6 +750,7 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
                                     case ';':
                                         writable_line[i] = 0;
                                         if(args[argc] != NULL){
+                                            dbg_printf("ending arg at char '%c'", c);
                                             argc++;
                                         }
 
@@ -742,12 +758,6 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
                                         break;
 
                                     default:
-                                        if(isspace(c)){
-                                            if(args[argc] != NULL){
-                                                argc++;
-                                            }
-                                        }
-
                                         break;
                                 }
                             }

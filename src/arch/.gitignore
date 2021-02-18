@@ -1,0 +1,7 @@
+obj/
+
+srsvm_*
+srsvm_as_*
+
+!*.c
+!*.h
