@@ -1,4 +1,7 @@
-.PHONY: clean all debug release
+.PHONY: clean all debug release install
+
+PREFIX := ${HOME}/.local
+export PREFIX
 
 all: release
 
@@ -15,7 +18,7 @@ debug:
 	$(MAKE) WORD_SIZE=128 -C mod debug
 
 release: CFLAGS += -DNEDBUG -O2
-release:
+release: 
 	$(MAKE) -C wrap release
 	$(MAKE) WORD_SIZE=16 -C arch release
 	$(MAKE) WORD_SIZE=16 -C mod release
@@ -30,3 +33,8 @@ clean:
 	$(MAKE) -C wrap clean
 	$(MAKE) -C arch clean
 	$(MAKE) -C mod clean
+
+install: release
+	$(MAKE) -C wrap install
+	$(MAKE) -C arch install
+	$(MAKE) -C mod install

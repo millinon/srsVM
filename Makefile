@@ -1,4 +1,4 @@
-.PHONY: all release debug clean
+.PHONY: all release debug clean install
 
 all:
 	$(MAKE) -C src
@@ -11,3 +11,6 @@ debug:
 
 clean:
 	$(MAKE) -C src clean
+
+install: release
+	$(MAKE) -C src install

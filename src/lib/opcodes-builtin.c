@@ -432,24 +432,6 @@ void builtin_PUTS(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, con
     }
 }
 
-void builtin_PRINT_U8(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
-{
-    srsvm_register *src_str_reg = register_lookup(vm, thread, argv[0]);
-
-    if(src_str_reg != NULL){
-        printf("%u\n", (unsigned char)(src_str_reg->value.u8[0]));
-    }
-}
-
-void builtin_PRINT_U16(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
-{
-    srsvm_register *src_str_reg = register_lookup(vm, thread, argv[0]);
-
-    if(src_str_reg != NULL){
-        printf("0x%x\n", src_str_reg->value.u16[0]);
-    }
-}
-
 void builtin_INCR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
 {
     srsvm_register *reg = register_lookup(vm, thread, argv[0]);

@@ -1,6 +1,6 @@
-.PHONY: clean-obj clean
+.PHONY: clean-obj clean install
 
-CFLAGS := -I../../include -Wall -fvisibility=hidden
+CFLAGS := -I../../include -Wall -fvisibility=hidden -DPREFIX='"$(PREFIX)"'
 
 all: progs
 
@@ -38,3 +38,8 @@ clean-obj:
 
 clean: clean-obj
 	rm -f srsvm srsvm_as
+
+install: release
+	install -d "$(DESTDIR)$(PREFIX)/bin"
+	install -m 0755 srsvm "$(DESTDIR)$(PREFIX)/bin/"
+	install -m 0755 srsvm_as "$(DESTDIR)$(PREFIX)/bin/"

@@ -260,8 +260,8 @@ static bool parse_unsigned_hex_word(const char* str, srsvm_word *value)
 
             size_t upper_len = input_len - 32;
 
-            strncat(lower_buf, str + upper_len, 32);
-            strncat(upper_buf, str, upper_len);
+            strncpy(lower_buf, str + upper_len, 32);
+            strncpy(upper_buf, str, upper_len);
 
             if(sscanf(lower_buf, "%" SCNx64, &lower) == 1 && sscanf(upper_buf, "%" SCNx64, &upper) == 1){
                 if(value != NULL){

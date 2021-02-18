@@ -1,8 +1,8 @@
 .PHONY: clean-obj clean
 
-CFLAGS := -I../../../include -Wall -fPIC -march=native -ftree-vectorize -ffast-math -DPREFIX='"$(PREFIX)"'
+CFLAGS := -I../../../include -Wall -fPIC -march=native -ftree-vectorize -DPREFIX='"$(PREFIX)"'
 
-MOD_NAME := math
+MOD_NAME := conversion
 
 all: release
 
@@ -31,7 +31,7 @@ obj/128/%.o: %.c
 	$(CC) $(CFLAGS) -DWORD_SIZE=128 -c -o $@ $<
 
 $(MOD_NAME).svmmod: main.c \
-	obj/16/mod_math.o obj/32/mod_math.o obj/64/mod_math.o obj/128/mod_math.o  \
+	obj/16/mod_conversion.o obj/32/mod_conversion.o obj/64/mod_conversion.o obj/128/mod_conversion.o  \
 	obj/16/loader.o obj/32/loader.o obj/64/loader.o obj/128/loader.o
 	$(CC) -shared $(CFLAGS) -o $@ $^
 

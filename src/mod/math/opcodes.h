@@ -15,7 +15,7 @@ srsvm_word code = 0;
 
 #if defined(SRSVM_MOD_MATH_VECTORIZED)
 
-#define UNARY_OPERATOR(name,type,ctype8yy,field,expression,fault_cond,fault_message) \
+#define UNARY_OPERATOR(name,type,ctype,field,expression,fault_cond,fault_message) \
     REGISTER_OPCODE(code++,EVAL2(name,type),2,4); \
     REGISTER_OPCODE(code++,EVAL3(VEC,name,type),2,2);
 

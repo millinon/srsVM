@@ -1,6 +1,6 @@
 .PHONY: clean-obj clean
 
-CFLAGS := -I../../include -fpic -Wall -DSRSVM_INTERNAL -DWORD_SIZE=$(WORD_SIZE)
+CFLAGS := -I../../include -fpic -Wall -DSRSVM_INTERNAL -DWORD_SIZE=$(WORD_SIZE) -DPREFIX='"$(PREFIX)"'
 LDFLAGS := -rdynamic -fvisibility=hidden
 
 all: release
@@ -62,3 +62,10 @@ clean: clean-obj
 	for arch in 16 32 64 128; do \
 		rm -f srsvm_$$arch srsvm_as_$$arch ; \
 	done
+
+install: 
+	install -d "$(DESTDIR)$(PREFIX)/libexec/srsvm"
+	for arch in 16 32 64 128; do \
+		install -m 0755 srsvm_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
+		install -m 0755 srsvm_as_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
+		done
