@@ -143,8 +143,9 @@ static inline bool load_str(srsvm_register *reg, const char* value, size_t len)
         return false;
     } else {
         memset(reg->value.str, 0, (len + 1) * sizeof(char));
-        strncpy(reg->value.str, value, len);
-        reg->value.str_len = len;
+        //srsvm_strncpy(reg->value.str, value, len+1);
+		strcpy(reg->value.str, value);
+		reg->value.str_len = len;
         return true;
     }
 }
@@ -160,10 +161,10 @@ static inline bool mem_load_str(const srsvm_vm *vm, srsvm_register *reg, const s
 
     if(seg != NULL){
         for(size_t str_len = 0; str_len < seg->literal_sz - (ptr - seg->literal_start); str_len++){
-            char *lit_ptr = seg->literal_memory + str_len;
+            char *lit_ptr = ((char*) seg->literal_memory) + str_len;
 
             if(*lit_ptr == 0){
-                reg->value.str = strndup(lit_ptr, str_len);
+                reg->value.str = srsvm_strdup(lit_ptr - str_len);
                 reg->value.str_len = (srsvm_word) str_len;
                 return true;
             }

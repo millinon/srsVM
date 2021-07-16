@@ -136,7 +136,7 @@ int main(int argc, char *argv[]){
                         char *tok = strtok(lib_path, ";");
 
                         if(tok == NULL){
-                            if((module_search_path[0] = strdup(lib_path)) == NULL){
+                            if((module_search_path[0] = srsvm_strdup(lib_path)) == NULL){
                                 fprintf(stderr, "Error: failed to allocate module search path token\n");
                                 return 1;
                             }
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]){
                                 if(strlen(tok) == 0){
                                     continue;
                                 } else {
-                                    if((module_search_path[tok_num++] = strdup(tok)) == NULL){
+                                    if((module_search_path[tok_num++] = srsvm_strdup(tok)) == NULL){
                                         fprintf(stderr, "Error: failed to allocate module search path token\n");
                                     }
                                 }
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]){
 
     if(output_filename == NULL){
         if(strcmp(input_files[0], "-") == 0){
-            output_filename = strdup("out.svm");
+            output_filename = srsvm_strdup("out.svm");
             if(output_filename == NULL){
                 fprintf(stderr, "Error: failed to allocate output filename\n");
                 return 1;
@@ -243,9 +243,8 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    if(module_search_path != NULL){
-        srsvm_asm_program_set_search_path(asm_prog, module_search_path);
-    }
+
+	srsvm_asm_program_set_search_path(asm_prog, module_search_path);
 
     bool have_fatal_error = false;
 
@@ -271,7 +270,8 @@ int main(int argc, char *argv[]){
 
         size_t size = MAX_INPUT_LINE_LEN;
 
-        while(getline(&line_buf, &size, input) != -1){
+		while(fgets(line_buf, size, input) != NULL){
+        //while(getline(&line_buf, &size, input) != -1){
             line_buf[strcspn(line_buf, "\n")] = 0;
             line_buf[strcspn(line_buf, "\r")] = 0;
 

@@ -223,7 +223,7 @@ void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path)
             }
         }
 
-        char *writable_arg = strdup(search_path);
+        char *writable_arg = srsvm_strdup(search_path);
         if(writable_arg != NULL){
             char **path = malloc((num_toks + 1) * sizeof(char*));
             for(int i = 0; i < num_toks+1; i++){
@@ -235,13 +235,13 @@ void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path)
                 char *tok = strtok(writable_arg, ";");
 
                 if(tok == NULL){
-                    path[0] = strdup(search_path);
+                    path[0] = srsvm_strdup(search_path);
                 } else {
                     while(tok != NULL){
                         if(strlen(tok) == 0){
                             continue;
                         } else {
-                            path[tok_num++] = strdup(tok);
+                            path[tok_num++] = srsvm_strdup(tok);
                         }
 
                         tok = strtok(NULL, ";");
@@ -257,7 +257,7 @@ void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path)
             vm->module_search_path = NULL;
         }
     } else {
-        vm->module_search_path = NULL;
+		srsvm_vm_set_module_search_path(vm, "mod");
     }
 
     if(vm->module_search_path == NULL){
@@ -466,7 +466,7 @@ static bool const_slot_in_use(const srsvm_vm *vm, const srsvm_word slot_num)
 { \
     srsvm_constant_value *c = NULL; \
     if(index < SRSVM_CONST_MAX_COUNT && !const_slot_in_use(vm, index)){ \
-        c = srsvm_const_alloc(flag); \
+        c = srsvm_const_alloc(SRSVM_TYPE_##flag); \
         if(c != NULL){ \
             vm->constants[index] = c; \
             c->name = value; \
@@ -503,7 +503,7 @@ srsvm_constant_value *srsvm_vm_alloc_const_str(srsvm_vm *vm, const srsvm_word in
 {
     srsvm_constant_value *c = NULL;
     if(index < SRSVM_CONST_MAX_COUNT && !const_slot_in_use(vm, index)){
-        c = srsvm_const_alloc(STR);
+        c = srsvm_const_alloc(SRSVM_TYPE_STR);
         if(c != NULL){
             vm->constants[index] = c;
             c->str = value;
@@ -577,7 +577,7 @@ bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program)
 
                 switch(cv->type){
 #define LOADER(field, type) \
-                    case type: \
+                    case SRSVM_TYPE_##type: \
                                if(srsvm_vm_alloc_const_##field(vm, c->const_slot, cv->field) == NULL) { \
                                    return false; \
                                } \

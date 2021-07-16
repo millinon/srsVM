@@ -1,0 +1,7 @@
+LIBRARY conversion.svmmod
+
+EXPORTS
+	srsvm_word_size_support @1
+	srsvm_enumerate_opcodes_16 @2
+	srsvm_enumerate_opcodes_32 @3
+	srsvm_enumerate_opcodes_64 @4

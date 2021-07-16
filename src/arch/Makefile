@@ -1,6 +1,6 @@
 .PHONY: clean-obj clean
 
-CFLAGS := -I../../include -fpic -Wall -DSRSVM_INTERNAL -DWORD_SIZE=$(WORD_SIZE) -DPREFIX='"$(PREFIX)"'
+CFLAGS := -I../../include -fpic -Wall -DSRSVM_INTERNAL -DWORD_SIZE=$(WORD_SIZE) -DPREFIX='"$(PREFIX)"' -DSRSVM_SUPPORT_COMPRESSION
 LDFLAGS := -rdynamic -fvisibility=hidden
 
 all: release

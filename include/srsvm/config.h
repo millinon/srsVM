@@ -1,6 +1,8 @@
 #pragma once
 
-#if defined(__unix__)
+#include "srsvm/platform-detection.h"
+
+#if defined(SRSVM_BUILD_TARGET_LINUX)
 
 #ifndef PREFIX
 #error "PREFIX not defined"
@@ -15,5 +17,3 @@
 #endif
 
 #define SRSVM_MOD_PATH_ENV_NAME "SRSVM_MOD_PATH"
-
-#define SRSVM_SUPPORT_COMPRESSION

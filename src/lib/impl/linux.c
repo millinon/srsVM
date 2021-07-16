@@ -383,3 +383,13 @@ int srsvm_strncasecmp(const char* a, const char* b, const size_t count)
 {
     return strncasecmp(a, b, count);
 }
+
+char *srsvm_strdup(const char* s)
+{
+	return strdup(s);
+}
+
+char *srsvm_strndup(const char* s, const size_t n)
+{
+	return strndup(s, n);
+}

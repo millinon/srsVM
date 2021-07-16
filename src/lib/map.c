@@ -12,7 +12,7 @@ srsvm_string_map_node * srsvm_string_map_node_alloc(const char* key, void* value
         node->parent = NULL;
 
         memset(node->key, 0, sizeof(node->key));
-        strncpy(node->key, key, sizeof(node->key) - 1);
+		srsvm_strncpy(node->key, key, sizeof(node->key) - 1);
         node->value = value;
 
         node->lchild = NULL;

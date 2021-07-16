@@ -11,9 +11,14 @@
 
 #include "srsvm/config.h"
 
-#ifdef __unix__
+
+#if defined(SRSVM_BUILD_TARGET_LINUX)
 
 #include "srsvm/impl/linux.h"
+
+#elif defined(SRSVM_BUILD_TARGET_WINDOWS)
+
+#include "srsvm/impl/windows.h"
 
 #else
 
@@ -56,6 +61,9 @@ char *srsvm_path_combine(const char* path_1, const char* path_2);
 
 int srsvm_strcasecmp(const char* a, const char* b);
 int srsvm_strncasecmp(const char* a, const char* b, const size_t count);
+
+char *srsvm_strdup(const char* s);
+char *srsvm_strndup(const char* s, const size_t n);
 
 #if defined(SRSVM_SUPPORT_COMPRESSION)
 void *srsvm_zlib_deflate(const void* data, size_t *compressed_size, const size_t original_size);

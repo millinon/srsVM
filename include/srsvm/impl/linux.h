@@ -10,6 +10,11 @@
 #define SRSVM_EXPORT extern
 #endif
 
+#define SRSVM_PROGRAM_SUPPORT_SHEBANG
+#define SRSVM_MAX_PATH_LEN PATH_MAX
+
+#define srsvm_strncpy(dst,src,len) strncpy(dst,src,len)
+
 typedef pthread_mutex_t srsvm_lock;
 
 typedef pthread_t srsvm_thread_native_handle;

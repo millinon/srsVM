@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup Label="ProjectConfigurations">
+  
+    <ProjectConfiguration Include="debug_16|Win32">
+      <Configuration>Debug_16</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_16|x64">
+      <Configuration>Debug_16</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_32|Win32">
+      <Configuration>Debug_32</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_32|x64">
+      <Configuration>Debug_32</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_64|Win32">
+      <Configuration>Debug_64</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_64|x64">
+      <Configuration>Debug_64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_16|Win32">
+      <Configuration>Release_16</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_16|x64">
+      <Configuration>Release_16</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_32|Win32">
+      <Configuration>Release_32</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_32|x64">
+      <Configuration>Release_32</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_64|Win32">
+      <Configuration>Release_64</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_64|x64">
+      <Configuration>Release_64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+	
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{37114AD9-036F-4A92-9C99-C7C431556A66}</ProjectGuid>
+	<WORD_SIZE>64</WORD_SIZE>
+  </PropertyGroup>
+
+  <Import Project="conversion_base.vcxproj" />
+</Project>

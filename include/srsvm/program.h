@@ -8,15 +8,18 @@
 #include <stdint.h>
 
 #if defined(WORD_SIZE)
-#include "srsvm/constant.h"
-#include "srsvm/register.h"
+#include "srsvm/constant.h" 
+#include "srsvm/impl.h"
 #include "srsvm/memory.h"
+#include "srsvm/register.h"
 #include "srsvm/word.h"
 #endif
 
 typedef struct
 {
-    char shebang[PATH_MAX];
+#if defined(SRSVM_PROGRAM_SUPPORT_SHEBANG)
+    char shebang[SRSVM_MAX_PATH_LEN];
+#endif
     char magic[3];
     uint8_t word_size;
 

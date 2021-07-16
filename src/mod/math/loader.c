@@ -38,8 +38,7 @@ static bool register_opcode(srsvm_module_opcode_loader loader, srsvm_word code, 
     return success;
 }
 
-
-SRSVM_EXPORT bool EVAL2(srsvm_enumerate_opcodes,WORD_SIZE)(srsvm_module_opcode_loader loader, void* arg)
+bool EVAL2(srsvm_enumerate_opcodes,WORD_SIZE)(srsvm_module_opcode_loader loader, void* arg)
 {
     bool success = true;
 

@@ -30,7 +30,7 @@ bool srsvm_const_load(srsvm_register *dest_reg, srsvm_constant_value *val, const
         dbg_printf("const type = %u", val->type);
         switch(val->type){
             #define LOADER(name,flag) \
-                case flag: \
+                case SRSVM_TYPE_##flag: \
                     success = load_##name(dest_reg, val->name, offset); \
                     break;
             
@@ -57,7 +57,7 @@ bool srsvm_const_load(srsvm_register *dest_reg, srsvm_constant_value *val, const
             LOADER(i128, I128);
 #endif
 #undef LOADER
-            case STR:
+            case SRSVM_TYPE_STR:
                 success = load_str(dest_reg, val->str, val->str_len);
                 break;
             default:

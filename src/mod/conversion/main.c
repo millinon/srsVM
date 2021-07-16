@@ -2,7 +2,7 @@
 
 #include "srsvm/impl.h"
 
-SRSVM_EXPORT bool srsvm_word_size_support(const uint8_t word_size)
+bool srsvm_word_size_support(const uint8_t word_size)
 {
     switch(word_size) {
         case 16:

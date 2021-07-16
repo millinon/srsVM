@@ -107,9 +107,7 @@ int main(int argc, char* argv[]){
 
     const char* mod_path = getenv(SRSVM_MOD_PATH_ENV_NAME);
 
-    if(mod_path != NULL){
-        srsvm_vm_set_module_search_path(vm, mod_path);
-    }
+	srsvm_vm_set_module_search_path(vm, mod_path);
 
     main_thread = vm->main_thread;
 

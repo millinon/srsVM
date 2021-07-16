@@ -6,6 +6,7 @@
 #include "srsvm/mmu.h"
 #include "srsvm/opcode-helpers.h"
 #include "srsvm/module.h"
+#include "srsvm/value_types.h"
 #include "srsvm/vm.h"
 
 void builtin_NOP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_word argv[])
@@ -93,14 +94,14 @@ void builtin_LOAD(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, con
     }
 
     if(dest_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
-        if(type > MAX_TYPE_VALUE){
+        if(type > SRSVM_MAX_TYPE_VALUE){
             thread->has_fault = true;
             thread->fault_str = "Attempt to load an invalid type";
         } else {
             switch(type){
 
             #define LOADER(name,flag) \
-                case flag: \
+                case SRSVM_TYPE_##flag: \
                 if(! mem_load_##name(vm, dest_reg, src_addr, offset)){ \
                     thread->has_fault = true; \
                     thread->fault_str = "Failed to load from memory into register"; \
@@ -160,7 +161,7 @@ void builtin_STORE(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, co
         switch(type){
 
 #define LOADER(name,flag) \
-            case flag: \
+            case SRSVM_TYPE_##flag: \
                        if(! mem_store_##name(vm, src_reg, dest_addr, offset)){ \
                            thread->has_fault = true; \
                            thread->fault_str = "Failed to store value from register into memory"; \
@@ -571,7 +572,7 @@ static bool register_opcode(srsvm_opcode_map *map, srsvm_word code, const char* 
             op->code = code;
             memset(op->name, 0, sizeof(op->name));
             if(strlen(name) > 0){
-                strncpy(op->name, name, sizeof(op->name) - 1);
+				srsvm_strncpy(op->name, name, sizeof(op->name) - 1);
             }
             op->argc_min = argc_min;
             op->argc_max = argc_max;

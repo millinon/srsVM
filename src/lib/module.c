@@ -50,7 +50,7 @@ srsvm_module *srsvm_module_alloc(const char* name, const char* filename, srsvm_w
         mod->tag = NULL;
 
         if(strlen(name) < SRSVM_MODULE_MAX_NAME_LEN){
-            strncpy(mod->name, name, sizeof(mod->name));
+			srsvm_strncpy(mod->name, name, sizeof(mod->name));
 
             if(srsvm_native_module_load(&mod->handle, filename)){
                 dbg_puts("mod loaded");
@@ -63,8 +63,10 @@ srsvm_module *srsvm_module_alloc(const char* name, const char* filename, srsvm_w
                 mod->opcode_map = srsvm_opcode_map_alloc();
                 
                 if(mod->opcode_map == NULL){
+					dbg_puts("failed to alloc opcode map");
                     goto error_cleanup;
                 } else if(! srsvm_native_module_load_opcodes(&mod->handle, load_opcode, mod)){
+					dbg_puts("failed to load opcodes");
                     goto error_cleanup;
                 }
             } else {

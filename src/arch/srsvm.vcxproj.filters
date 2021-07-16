@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{aa8b4b03-847a-4613-9788-9e570da812f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lib">
+      <UniqueIdentifier>{8e365bb7-31f8-4c26-95b4-09bbb1d4d55e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\lib\impl">
+      <UniqueIdentifier>{d45ef805-bb61-4f3f-8525-d41cb0c478c5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="srsvm.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\constant.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\map.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\mmu.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\module.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\opcode.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\opcodes-builtin.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\program.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\register.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\thread.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\vm.c">
+      <Filter>src\lib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\impl\windows.c">
+      <Filter>src\lib\impl</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

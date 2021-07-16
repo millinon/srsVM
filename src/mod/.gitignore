@@ -1,2 +1,4 @@
 */*.svmmod
 */obj/
+*/intermediate/
+*/output/

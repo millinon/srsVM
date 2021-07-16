@@ -55,6 +55,11 @@ typedef unsigned __int128 srsvm_word;
 
 #else
 
+#define STRING2(x) #x
+#define STRING(x) STRING2(x)
+
+#pragma message(STRING(WORD_SIZE))
+
 #error "WORD_SIZE not defined or has an invalid value"
 
 #endif

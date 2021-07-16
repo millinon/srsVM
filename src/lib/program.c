@@ -104,7 +104,10 @@ srsvm_program_metadata* srsvm_program_metadata_alloc(void)
 
     if(metadata != NULL){
         memset(metadata, 0, sizeof(srsvm_program_metadata));
-        strncpy(metadata->magic, "SRS", 3);
+		//srsvm_strncpy(metadata->magic, "SRS", 3);
+		metadata->magic[0] = 'S';
+		metadata->magic[1] = 'R';
+		metadata->magic[2] = 'S';
 #if defined(WORD_SIZE)
         metadata->word_size = WORD_SIZE;
 #endif
@@ -171,11 +174,11 @@ static bool deserialize_metadata(FILE *stream, srsvm_program *program)
             if(fread(&metadata->magic, sizeof(metadata->magic), 1, stream) != 1){
                 goto error_cleanup;
             }
-
+#if defined(SRSVM_PROGRAM_SUPPORT_SHEBANG)
             if(metadata->magic[0] == '#' && metadata->magic[1] == '!'){
                 strcpy(metadata->shebang, metadata->magic);
 
-                if(fgets(metadata->shebang + sizeof(metadata->magic), PATH_MAX - sizeof(metadata->magic), stream) != metadata->shebang + sizeof(metadata->magic)){
+                if(fgets(metadata->shebang + sizeof(metadata->magic), SRSVM_MAX_PATH_LEN - sizeof(metadata->magic), stream) != metadata->shebang + sizeof(metadata->magic)){
                     goto error_cleanup;
                 }
             
@@ -183,9 +186,10 @@ static bool deserialize_metadata(FILE *stream, srsvm_program *program)
                     goto error_cleanup;
                 }
             }
-
-            if(strncmp(metadata->magic, "SRS", sizeof(metadata->magic)) != 0){
-                dbg_puts("Failed to load program: wrong magic number\n");
+#endif
+            //if(strncmp(metadata->magic, "SRS", sizeof(metadata->magic)) != 0){
+            if(metadata->magic[0] != 'S' || metadata->magic[1] != 'R' || metadata->magic[2] != 'S'){
+				dbg_puts("Failed to load program: wrong magic number\n");
                 goto error_cleanup;
             } else if(fread(&metadata->word_size, sizeof(metadata->word_size), 1, stream) != 1){
                 goto error_cleanup;
@@ -482,7 +486,7 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
 
                 switch(c->const_val.type){
 
-#define LOADER(field,flag) case flag:\
+#define LOADER(field,flag) case SRSVM_TYPE_##flag:\
                     memcpy(&c->const_val.field, decompressed_data + offset, sizeof(c->const_val.field)); \
                     offset += sizeof(c->const_val.field); \
                     break;
@@ -510,7 +514,7 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
                     LOADER(i128, I128);
 #endif
 #undef LOADER
-                    case STR:
+                    case SRSVM_TYPE_STR:
                     memcpy(&c->const_val.str_len, decompressed_data + offset, sizeof(c->const_val.str_len));
                     offset += sizeof(c->const_val.str_len);
 
@@ -565,7 +569,7 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
                     switch(c->const_val.type)
                     {
 
-#define LOADER(field,flag) case flag:\
+#define LOADER(field,flag) case SRSVM_TYPE_##flag:\
                         if(fread(&c->const_val.field, sizeof(c->const_val.field), 1, stream) < 1){ \
                             goto error_cleanup; \
                         } \
@@ -594,7 +598,7 @@ static bool deserialize_constants(FILE *stream, srsvm_program *program)
                         LOADER(i128, I128);
 #endif
 #undef LOADER
-                        case STR:
+                        case SRSVM_TYPE_STR:
                         if(fread(&c->const_val.str_len, sizeof(c->const_val.str_len), 1, stream) != 1){
                             dbg_puts("ERROR: failed to read string length");
                             goto error_cleanup;
@@ -652,9 +656,9 @@ bool serialize_metadata(FILE *stream, const srsvm_program *program)
 {
     bool success = false;
 
+#if defined(SRSVM_PROGRAM_SUPPORT_SHEBANG)
     size_t shebang_len = strlen(program->metadata->shebang);
     char *writable_shebang = NULL;
-
     if(shebang_len > 0){
         writable_shebang = strdup(program->metadata->shebang);
 
@@ -668,13 +672,13 @@ bool serialize_metadata(FILE *stream, const srsvm_program *program)
             } else if(writable_shebang[i] != '\0') break;
         }
 
-        if(fprintf(stream, "%*s\n", PATH_MAX-1, writable_shebang) <= 0){
+        if(fprintf(stream, "%*s\n", SRSVM_MAX_PATH_LEN -1, writable_shebang) <= 0){
             goto error_cleanup;    
         }
 
         free(writable_shebang);
     }
-
+#endif
     if(fwrite(&program->metadata->magic, sizeof(program->metadata->magic), 1, stream) != 1){
         goto error_cleanup;
     } else if(fwrite(&program->metadata->word_size, sizeof(program->metadata->word_size), 1, stream) != 1){
@@ -688,9 +692,11 @@ bool serialize_metadata(FILE *stream, const srsvm_program *program)
     return success;
 
 error_cleanup:
+#if defined(SRSVM_PROGRAM_SUPPORT_SHEBANG)
     if(writable_shebang != NULL){
         free(writable_shebang);
     }
+#endif
 
     return false;
 }
@@ -834,7 +840,7 @@ bool write_const(FILE *stream, const srsvm_constant_specification *c)
 
             switch(cv->type){
 #define LOADER(field,flag) \
-                case flag: \
+                case SRSVM_TYPE_##flag: \
                            if(fwrite(&cv->field, sizeof(cv->field), 1, stream) != 1){ \
                                return false; \
                            } \
@@ -863,7 +869,7 @@ bool write_const(FILE *stream, const srsvm_constant_specification *c)
                 LOADER(i128, I128);
 #endif
 #undef LOADER
-                case STR:
+                case SRSVM_TYPE_STR:
                 if(fwrite(&cv->str_len, sizeof(cv->str_len), 1, stream) != 1){
                     return false;
                 } else if(fwrite(cv->str, sizeof(char), (size_t) cv->str_len, stream) != (size_t) cv->str_len){
@@ -891,6 +897,7 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
     } else if(fwrite(&program->constants_compressed, sizeof(program->constants_compressed), 1, stream) != 1){
         success = false;
     } else {
+#if defined(SRSVM_SUPPORT_COMPRESSION)
         if(program->constants_compressed){
             srsvm_constant_specification *c = program->constants;
 
@@ -902,7 +909,7 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
 
                 switch(c->const_val.type){
 #define LOADER(field,flag) \
-                    case flag: \
+                    case SRSVM_TYPE_##flag: \
                                uncompressed_size += sizeof(c->const_val.field); \
                     break;
 
@@ -929,7 +936,7 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
                     LOADER(i128, I128);
 #endif
 #undef LOADER
-                    case STR:
+                    case SRSVM_TYPE_STR:
                     uncompressed_size += sizeof(c->const_val.str_len);
                     uncompressed_size += c->const_val.str_len;
 
@@ -955,7 +962,7 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
 
                 switch(c->const_val.type){
 #define LOADER(field,flag) \
-                    case flag: \
+                    case SRSVM_TYPE_##flag: \
                                memcpy(uncompressed_data + offset, &c->const_val.field, sizeof(c->const_val.field)); \
                     offset += sizeof(c->const_val.field); \
                     break;
@@ -983,7 +990,7 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
                     LOADER(i128, I128);
 #endif
 #undef LOADER
-                    case STR:
+                    case SRSVM_TYPE_STR:
                         memcpy(uncompressed_data + offset, &c->const_val.str_len, sizeof(c->const_val.str_len));
                         offset += sizeof(c->const_val.str_len);
                         memcpy(uncompressed_data + offset, c->const_val.str, c->const_val.str_len);
@@ -1019,6 +1026,7 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
 
             free(compressed_data);
         } else {
+#endif
             size_t uncompressed_size = 0;
             size_t compressed_size = 0;
 
@@ -1028,7 +1036,9 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
                 success = false;
             } else success = write_const(stream, program->constants);
         }
+#if defined(SRSVM_SUPPORT_COMPRESSION)
     }
+#endif
 
     return success;
 }

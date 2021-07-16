@@ -108,7 +108,7 @@ typedef struct
 
     char** module_search_path;
 
-    char input_filename[PATH_MAX];
+    char input_filename[SRSVM_MAX_PATH_LEN];
 
     srsvm_assembler_message_report_func *on_error;
     srsvm_assembler_message_report_func *on_warning;
@@ -140,7 +140,7 @@ void srsvm_asm_line_free(srsvm_assembly_line *line);
 srsvm_assembly_program *srsvm_asm_program_alloc(srsvm_assembler_message_report_func on_error, srsvm_assembler_message_report_func on_warning, void* io_config);
 void srsvm_asm_program_free(srsvm_assembly_program *program);
 
-void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, char** search_path);
+void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, const char** search_path);
 
 bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str, const char* input_filename, unsigned long line_number);
 

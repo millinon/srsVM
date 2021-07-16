@@ -7,6 +7,18 @@
 #include "srsvm/asm.h"
 #include "srsvm/debug.h"
 
+#if defined(SRSVM_BUILD_TARGET_WINDOWS)
+char* strndup(char* str, size_t len)
+{
+	char* dup = (char*)malloc(len + 1);
+	if (dup) {
+		strncpy(dup, str, len);
+		dup[len] = '\0';
+	}
+	return dup;
+}
+#endif
+
 static inline void report_warning(srsvm_assembly_program *program, const char* filename, const unsigned long line_number, const char* message, void* config)
 {
     if(program != NULL && filename != NULL && message != NULL){
@@ -358,20 +370,20 @@ static srsvm_constant_value* parse_const(const char* str_value)
                 if(str_value[0] == '"' && str_value[str_len-1] == '"'){
                     raw = unescape(str_value);
 
-                    value = srsvm_const_alloc(STR);
-                    value->str = strdup(raw);
+                    value = srsvm_const_alloc(SRSVM_TYPE_STR);
+                    value->str = srsvm_strdup(raw);
                     value->str_len = str_len-2;
 
                     dbg_printf("found string constant: %s", str_value);
 
                 } else if(srsvm_strncasecmp(str_value, "TRUE", strlen(str_value)) == 0){
-                    value = srsvm_const_alloc(BIT);
+                    value = srsvm_const_alloc(SRSVM_TYPE_BIT);
                     value->bit = true;
                 } else if(srsvm_strncasecmp(str_value, "FALSE", strlen(str_value)) == 0){
-                    value = srsvm_const_alloc(BIT);
+                    value = srsvm_const_alloc(SRSVM_TYPE_BIT);
                     value->bit = false;
                 } else if(has_suffix(str_value, "%ptr_off", true)){
-                    value = srsvm_const_alloc(PTR_OFFSET);
+                    value = srsvm_const_alloc(SRSVM_TYPE_PTR_OFFSET);
 
                     raw = strndup(str_value, str_len - strlen("%ptr_off"));
 
@@ -380,7 +392,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%ptr", true)){
-                    value = srsvm_const_alloc(PTR);
+                    value = srsvm_const_alloc(SRSVM_TYPE_PTR);
 
                     raw = strndup(str_value, str_len - strlen("%ptr"));
 
@@ -389,7 +401,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%u8", true)){
-                    value = srsvm_const_alloc(U8);
+                    value = srsvm_const_alloc(SRSVM_TYPE_U8);
 
                     raw = strndup(str_value, str_len - strlen("%u8"));
 
@@ -399,7 +411,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%i8", true)){
-                    value = srsvm_const_alloc(I8);
+                    value = srsvm_const_alloc(SRSVM_TYPE_I8);
 
                     raw = strndup(str_value, str_len - strlen("%i8"));
 
@@ -409,7 +421,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                     }
 
                 } else if(has_suffix(str_value, "%u16", true)){
-                    value = srsvm_const_alloc(U16);
+                    value = srsvm_const_alloc(SRSVM_TYPE_U16);
 
                     raw = strndup(str_value, str_len - strlen("%u16"));
 
@@ -422,7 +434,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                     }
 
                 } else if(has_suffix(str_value, "%i16", true)){
-                    value = srsvm_const_alloc(I16);
+                    value = srsvm_const_alloc(SRSVM_TYPE_I16);
 
                     raw = strndup(str_value, str_len - strlen("%i16"));
 
@@ -432,7 +444,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                     }
 #if WORD_SIZE == 32 || WORD_SIZE == 64 || WORD_SIZE == 128
                 } else if(has_suffix(str_value, "%u32", true)){
-                    value = srsvm_const_alloc(U32);
+                    value = srsvm_const_alloc(SRSVM_TYPE_U32);
 
                     raw = strndup(str_value, str_len - strlen("%u32"));
 
@@ -442,7 +454,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%i32", true)){
-                    value = srsvm_const_alloc(I32);
+                    value = srsvm_const_alloc(SRSVM_TYPE_I32);
 
                     raw = strndup(str_value, str_len - strlen("%i32"));
 
@@ -451,7 +463,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%f32", true)){
-                    value = srsvm_const_alloc(F32);
+                    value = srsvm_const_alloc(SRSVM_TYPE_F32);
 
                     raw = strndup(str_value, str_len - strlen("%f32"));
 
@@ -462,7 +474,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
 #endif
 #if WORD_SIZE == 64 || WORD_SIZE == 128
                 } else if(has_suffix(str_value, "%u64", true)){
-                    value = srsvm_const_alloc(U64);
+                    value = srsvm_const_alloc(SRSVM_TYPE_U64);
 
                     raw = strndup(str_value, str_len - strlen("%u64"));
 
@@ -472,7 +484,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%i64", true)){
-                    value = srsvm_const_alloc(I64);
+                    value = srsvm_const_alloc(SRSVM_TYPE_I64);
 
                     raw = strndup(str_value, str_len - strlen("%i64"));
 
@@ -481,7 +493,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%f64", true)){
-                    value = srsvm_const_alloc(F64);
+                    value = srsvm_const_alloc(SRSVM_TYPE_F64);
 
                     raw = strndup(str_value, str_len - strlen("%f64"));
 
@@ -492,7 +504,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
 #endif
 #if WORD_SIZE == 128
                 } else if(has_suffix(str_value, "%u128", true)){
-                    value = srsvm_const_alloc(U128);
+                    value = srsvm_const_alloc(SRSVM_TYPE_U128);
 
                     raw = strndup(str_value, str_len - strlen("%u128"));
 
@@ -501,7 +513,7 @@ static srsvm_constant_value* parse_const(const char* str_value)
                         value = NULL;
                     }
                 } else if(has_suffix(str_value, "%i128", true)){
-                    value = srsvm_const_alloc(I128);
+                    value = srsvm_const_alloc(SRSVM_TYPE_I128);
 
                     raw = strndup(str_value, str_len - strlen("%i128"));
 
@@ -511,9 +523,9 @@ static srsvm_constant_value* parse_const(const char* str_value)
                     }
 #endif
                 } else {
-                    value = srsvm_const_alloc(WORD);
+                    value = srsvm_const_alloc(SRSVM_TYPE_WORD);
 
-                    raw = strdup(str_value);
+                    raw = srsvm_strdup(str_value);
 
                     if(! parse_unsigned_hex_word(raw, &value->word)){
                         dbg_puts("word parse failed");
@@ -524,9 +536,9 @@ static srsvm_constant_value* parse_const(const char* str_value)
                     }
                 }
             } else {
-                value = srsvm_const_alloc(WORD);
+                value = srsvm_const_alloc(SRSVM_TYPE_WORD);
 
-                raw = strdup(str_value);
+                raw = srsvm_strdup(str_value);
 
                 if(! parse_unsigned_hex_word(raw, &value->word)){
                     dbg_puts("word parse failed");
@@ -606,7 +618,7 @@ bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str,
     dbg_printf("input line: '%s'",  line_str);
 
     size_t line_len = strlen(line_str);
-    char *writable_line = strdup(line_str);
+    char *writable_line = srsvm_strdup(line_str);
 
     if(writable_line == NULL){
         goto error_cleanup;
@@ -987,7 +999,7 @@ search_again:
                         }
                     }
 
-                    if(parsed->type == WORD && line->opcode != program->builtin_LOAD_CONST){
+                    if(parsed->type == SRSVM_TYPE_WORD && line->opcode != program->builtin_LOAD_CONST){
                         line->assembled_instruction.argv[i + mod_op_offset] = parsed->word;
                     } else {
                         line->constant_references[line->num_constant_refs].c = const_val;
@@ -1033,7 +1045,7 @@ error_cleanup:
 #undef WARN_fmt
 }
 
-void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, char** search_path)
+void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, const char** search_path)
 {
     if(program != NULL){
         if(search_path != NULL){
@@ -1046,12 +1058,18 @@ void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, char** s
             char ** arr = malloc(path_count * sizeof(char*));
             memset(arr, 0, (path_count * sizeof(char*)));
             for(size_t i = 0; i < path_count - 1; i++){
-                arr[i] = strdup(search_path[i]);
+                arr[i] = srsvm_strdup(search_path[i]);
             }
 
             program->module_search_path = arr;
         } else {
-            program->module_search_path = NULL;
+			const char** path = malloc(sizeof(char*) * 2);
+			path[0] = "mod";
+			path[1] = NULL;
+
+			srsvm_asm_program_set_search_path(program, path);
+
+			free(path);
         }
     }
 }
@@ -1282,8 +1300,8 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                         ERR_fmt("failed to allocate constant value: %s", strerror(errno));
                     }
 
-                    const_val->value = srsvm_const_alloc(STR);
-                    const_val->value->str = strdup(line->module_name);
+                    const_val->value = srsvm_const_alloc(SRSVM_TYPE_STR);
+                    const_val->value->str = srsvm_strdup(line->module_name);
                     const_val->value->str_len = strlen(line->module_name);
                     const_val->ref_count = 1;
 
