@@ -74,6 +74,9 @@ srsvm_vm *srsvm_vm_alloc(void)
 
         vm->has_program_loaded = false;
 
+	vm->argv = NULL;
+	vm->argv = 0;
+
         srsvm_vm_set_module_search_path(vm, NULL);
 
         if((vm->opcode_map = srsvm_opcode_map_alloc()) == NULL){
@@ -627,4 +630,10 @@ bool srsvm_vm_load_program(srsvm_vm *vm, const srsvm_program *program)
     }
 
     return success;
+}
+
+void srsvm_vm_set_argv(srsvm_vm *vm, const char** argv, const int argc)
+{
+	vm->argv = argv;
+	vm->argc = argc;
 }

@@ -244,7 +244,7 @@ int main(int argc, char *argv[]){
     }
 
 
-	srsvm_asm_program_set_search_path(asm_prog, module_search_path);
+	srsvm_asm_program_set_search_path(asm_prog, (const char**) module_search_path);
 
     bool have_fatal_error = false;
 

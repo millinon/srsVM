@@ -93,8 +93,8 @@ bool srsvm_mmu_store(srsvm_memory_segment *root_segment, const srsvm_ptr address
 
     srsvm_lock_acquire(&segment->lock, 0);
 
-    char* *cpy_dest = (((char*)segment->literal_memory) + (uintptr_t)(address - segment->literal_start));
-    char* *cpy_src = src; 
+    char* cpy_dest = (((char*)segment->literal_memory) + (uintptr_t)(address - segment->literal_start));
+    char* cpy_src = src; 
 
     if(sizeof(srsvm_word) > sizeof(size_t)){
         srsvm_word bytes_remaining = bytes;

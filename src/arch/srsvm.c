@@ -46,7 +46,14 @@ int main(int argc, char* argv[]){
     
     char* program_name = NULL;
 
-    for(int i = 1; i < argc; i++){
+    bool sys_opts_done = false;
+
+
+    char **program_argv = malloc(argc * sizeof(char*));
+    memset(program_argv, 0, argc * sizeof(char*));
+    int program_argc = 0;
+
+    for(int i = 1; !sys_opts_done && i < argc; i++){
         switch(argv[i][0])
         {
             case '-':
@@ -58,21 +65,34 @@ int main(int argc, char* argv[]){
                     }
                 } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0){
                     show_usage(NULL);
-                } else {
+                } else if(strcmp(argv[i], "--") == 0){
+			i++;
+		    sys_opts_done = true;
+		} else {
                     snprintf(err_buf, sizeof(err_buf), "unrecognized flag: '%s'", argv[i]);
                     show_usage(err_buf);
                 }
                 break;
 
             default:
-                if(program_name != NULL){
-                    show_usage("only one program may be specified");
-                } else {
-                    program_name = argv[i];
-                }
-
+		if(program_name == NULL){
+			program_name = argv[i];
+			program_argv[0] = argv[i];
+			program_argc = 1;
+		} else {
+			sys_opts_done = true;
+		}
                 break;
         }
+
+	if(sys_opts_done){
+		int j = i;
+		for(; j < argc; j++){
+			if(argv[j] != NULL){
+				program_argv[program_argc++] = argv[j];
+			}
+		}
+	}
     }
 
     if(program_name == NULL){
@@ -104,6 +124,8 @@ int main(int argc, char* argv[]){
         exit_status = 1;
         goto cleanup;
     }
+
+    srsvm_vm_set_argv(vm, program_argv, program_argc);
 
     const char* mod_path = getenv(SRSVM_MOD_PATH_ENV_NAME);
 

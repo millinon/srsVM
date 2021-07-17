@@ -31,6 +31,11 @@ REGISTER_OPCODE(code++, JMP_OFF_ERR, 2, 2);
 
 code += 8;
 
+REGISTER_OPCODE(code++, ARGC, 1, 1);
+REGISTER_OPCODE(code++, ARGV, 2, 2);
+
+code += 2;
+
 REGISTER_OPCODE(code++, LOAD_CONST, 2, 3);
 REGISTER_OPCODE(code++, LOAD, 3, 4);
 //REGISTER_OPCODE(10, LOAD_OFFSET, 4, 5);

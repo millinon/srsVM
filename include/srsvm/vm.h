@@ -31,6 +31,9 @@ struct srsvm_vm
     bool has_program_loaded;
 
     srsvm_thread *main_thread;
+
+    const char** argv;
+    int argc;
 };
 
 srsvm_vm *srsvm_vm_alloc(void);
@@ -83,3 +86,5 @@ CONST_ALLOCATOR(__int128, i128);
 srsvm_constant_value *srsvm_vm_alloc_const_str(srsvm_vm *vm, const srsvm_word index, const char* value);
 
 bool srsvm_vm_load_const(srsvm_vm *vm, srsvm_register *dest_reg, const srsvm_word index, const srsvm_word offset);
+
+void srsvm_vm_set_argv(srsvm_vm *vm, const char** argv, const int argc);
