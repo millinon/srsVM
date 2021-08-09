@@ -88,10 +88,10 @@ srsvm_assembly_program *srsvm_asm_program_alloc(srsvm_assembler_message_report_f
             } } while(0)
 
     LOAD_BUILTIN(LOAD_CONST);
-    LOAD_BUILTIN(CMOD_LOAD);
-    LOAD_BUILTIN(CMOD_UNLOAD);
+    LOAD_BUILTIN(MOD_LOAD);
+    LOAD_BUILTIN(MOD_UNLOAD);
     LOAD_BUILTIN(MOD_UNLOAD_ALL);
-    LOAD_BUILTIN(CMOD_OP);
+    LOAD_BUILTIN(MOD_OP);
     LOAD_BUILTIN(NOP);
     LOAD_BUILTIN(JMP);
     LOAD_BUILTIN(JMP_IF);
@@ -589,7 +589,10 @@ static srsvm_opcode* parse_opcode(const srsvm_opcode_map *opcode_map, const char
 typedef struct
 {
     bool is_loaded;
-    srsvm_word slot_num;
+    //srsvm_word slot_num;
+    const char* mod_name;
+    //srsvm_word name_const_slot;
+    srsvm_assembly_program *program;
 } asm_mod_tag;
 
 bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str, const char* input_filename, const unsigned long line_number)
@@ -860,6 +863,7 @@ search_again:
                             ERR_fmt("failed to allocate module tag: %s", strerror(errno));
                         } else {
                             ((asm_mod_tag*) mod->tag)->is_loaded = false;
+			    ((asm_mod_tag*) mod->tag)->program = program;
                         }
                         
                         mod->ref_count = 1;
@@ -998,7 +1002,7 @@ search_again:
                         }
                     }
 
-                    if(parsed->type == SRSVM_TYPE_WORD && line->opcode != program->builtin_LOAD_CONST){
+                    if(parsed->type == SRSVM_TYPE_WORD){
                         line->assembled_instruction.argv[i + mod_op_offset].value = parsed->word;
 			line->assembled_instruction.argv[i + mod_op_offset].type = SRSVM_ARG_TYPE_WORD;
                     } else {
@@ -1199,7 +1203,7 @@ typedef struct
 {
     srsvm_assembly_line **line_ptr;
     srsvm_opcode *unload_opcode;
-    srsvm_word next_slot;
+    //srsvm_word next_slot;
 } mod_cache_data;
 
 static void module_lru_evict(const char* mod_name, void* evicted_data, void* state)
@@ -1215,13 +1219,19 @@ static void module_lru_evict(const char* mod_name, void* evicted_data, void* sta
     if(line->pre_count >= SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
         // TODO: error
     } else {
-        line->pre[line->pre_count].opcode = state_data->unload_opcode->code;
-        line->pre[line->pre_count].argv[0].value = tag->slot_num;
-        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_WORD;
-        line->pre[line->pre_count].argc = 1;
-        line->pre_count++;
+        srsvm_assembly_constant *const_val = srsvm_string_map_lookup(tag->program->const_map, tag->mod_name);
 
-        state_data->next_slot = tag->slot_num;
+	if(const_val != NULL){
+		line->pre[line->pre_count].opcode = state_data->unload_opcode->code;
+		line->pre[line->pre_count].argv[0].value = const_val->slot_num;
+		line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_CONSTANT;
+		line->pre[line->pre_count].argc = 1;
+		line->pre_count++;
+	} else {
+		// TODO: fail?
+	}
+        
+	//state_data->next_slot = tag->slot_num;
 
         tag->is_loaded = false;
     }
@@ -1272,8 +1282,8 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
         srsvm_assembly_line *line = NULL;
 
         mod_cache_data state_data;
-        state_data.next_slot = 0;
-        state_data.unload_opcode = program->builtin_CMOD_UNLOAD;
+        //state_data.next_slot = 0;
+        state_data.unload_opcode = program->builtin_MOD_UNLOAD;
         state_data.line_ptr = &line;
 
         srsvm_lru_cache *mod_cache = srsvm_lru_cache_alloc(true, SRSVM_MODULE_MAX_COUNT / 4, module_lru_evict, &state_data);
@@ -1393,7 +1403,7 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
             if(line_op == program->builtin_MOD_UNLOAD_ALL){
                 srsvm_string_map_walk(mod_cache->map, unload_modules, NULL);
                 srsvm_lru_cache_clear(mod_cache, false);
-                state_data.next_slot = 0;
+                //state_data.next_slot = 0;
             }
 
             if(strlen(line->module_name) > 0){
@@ -1418,7 +1428,8 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                         } else if(! srsvm_lru_cache_insert(mod_cache, mod->name, mod)){
                             ERR_fmt("cache insert failed for module '%s'", line->module_name);
                         } else {
-                            tag->slot_num = state_data.next_slot++;
+                            //tag->slot_num = state_data.next_slot++;
+			    tag->mod_name = (const char*) line->module_name;
                             //tag->is_loaded = true;
                         }
                     }
@@ -1430,7 +1441,16 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                     if(line->pre_count + 2 > SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
                         ERR_fmt("not enough space to insert module load '%s'", line->module_name);
                     } else {
-                        line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
+                        /*line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
+                        line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
+                        line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
+                        line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_CONSTANT;
+                        line->pre[line->pre_count].argc = 2;
+
+                        line->pre_count++;*/
+
+                        line->pre[line->pre_count].opcode = program->builtin_MOD_LOAD->code;
                         line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
                         line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
                         line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
@@ -1439,27 +1459,21 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 
                         line->pre_count++;
 
-                        line->pre[line->pre_count].opcode = program->builtin_CMOD_LOAD->code;
-                        line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
-                        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
-                        line->pre[line->pre_count].argv[1].value = tag->slot_num;
-                        line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_WORD;
-                        line->pre[line->pre_count].argv[2].value = assembled_mod_reg->index;
-                        line->pre[line->pre_count].argv[2].type = SRSVM_ARG_TYPE_REGISTER;
-                        line->pre[line->pre_count].argc = 3;
-
-                        line->pre_count++;
+			mod_name_const->ref_count++;
 
                         tag->is_loaded = true;
                     }
                 }
 
-                line->assembled_instruction.opcode = program->builtin_CMOD_OP->code;
-                line->assembled_instruction.argv[0].value = tag->slot_num;
-                line->assembled_instruction.argv[0].type = SRSVM_ARG_TYPE_WORD;
+                line->assembled_instruction.opcode = program->builtin_MOD_OP->code;
+                line->assembled_instruction.argv[0].value = mod_name_const->slot_num;
+                line->assembled_instruction.argv[0].type = SRSVM_ARG_TYPE_CONSTANT;
                 line->assembled_instruction.argv[1].value = line_op->code;
                 line->assembled_instruction.argv[1].type = SRSVM_ARG_TYPE_WORD;
-                dbg_printf("mod op code = " PRINT_WORD_HEX, PRINTF_WORD_PARAM(line_op->code));
+			
+		mod_name_const->ref_count++;
+                
+		dbg_printf("mod op code = " PRINT_WORD_HEX, PRINTF_WORD_PARAM(line_op->code));
             } else {
                 line->assembled_instruction.opcode = line_op->code;
             }

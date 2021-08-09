@@ -8,6 +8,7 @@ srsvm_word code = 0;
 
 REGISTER_OPCODE(code++, NOP, 0, 0);
 REGISTER_OPCODE(code++, HALT, 0, 1);
+REGISTER_OPCODE(code++, HALT_ERR, 1, 2);
 
 code += 5;
 
@@ -30,6 +31,11 @@ REGISTER_OPCODE(code++, JMP_ERR, 2, 2);
 REGISTER_OPCODE(code++, JMP_OFF_ERR, 2, 2);
 
 code += 8;
+
+REGISTER_OPCODE(code++, REG_ID, 2, 2);
+REGISTER_OPCODE(code++, MOD_ID, 2, 2);
+
+code += 2;
 
 REGISTER_OPCODE(code++, ARGC, 1, 1);
 REGISTER_OPCODE(code++, ARGV, 2, 2);
@@ -56,10 +62,6 @@ REGISTER_OPCODE(code++, MOD_LOAD, 2, 2);
 REGISTER_OPCODE(code++, MOD_UNLOAD, 1, 1);
 REGISTER_OPCODE(code++, MOD_OP, 2, MAX_INSTRUCTION_ARGS);
 
-REGISTER_OPCODE(code++, CMOD_LOAD, 3, 3);
-REGISTER_OPCODE(code++, CMOD_UNLOAD, 1, 1);
-REGISTER_OPCODE(code++, CMOD_OP, 2, MAX_INSTRUCTION_ARGS);
-
 REGISTER_OPCODE(code++, MOD_UNLOAD_ALL, 0, 0);
 
 code += 2;
@@ -82,4 +84,6 @@ REGISTER_OPCODE(code++, WORD_EQ, 3, 3);
 
 code += 16;
 
+REGISTER_OPCODE(code++, PUT, 1, 1);
 REGISTER_OPCODE(code++, PUTS, 1, 1);
+REGISTER_OPCODE(code++, PUTS_ERR, 1, 1);

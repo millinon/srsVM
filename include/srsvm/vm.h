@@ -16,7 +16,8 @@ struct srsvm_vm
 {
     srsvm_opcode_map *opcode_map;
     srsvm_string_map *module_map;
-
+    srsvm_string_map *register_map;
+ 
     srsvm_memory_segment *mem_root;
 
     srsvm_register *registers[SRSVM_REGISTER_MAX_COUNT];

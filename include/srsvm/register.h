@@ -88,7 +88,7 @@ typedef struct
     bool locked;
 
     bool error_flag;
-    const char* error_str;
+    char error_str[1024];
 
     srsvm_register_contents value;
 } srsvm_register;

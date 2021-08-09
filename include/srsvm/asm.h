@@ -115,10 +115,10 @@ typedef struct
     void* io_config;
 
     srsvm_opcode *builtin_LOAD_CONST;
-    srsvm_opcode *builtin_CMOD_LOAD;
-    srsvm_opcode *builtin_CMOD_UNLOAD;
+    srsvm_opcode *builtin_MOD_LOAD;
+    srsvm_opcode *builtin_MOD_UNLOAD;
     srsvm_opcode *builtin_MOD_UNLOAD_ALL;
-    srsvm_opcode *builtin_CMOD_OP;
+    srsvm_opcode *builtin_MOD_OP;
     srsvm_opcode *builtin_NOP;
     srsvm_opcode *builtin_JMP;
     srsvm_opcode *builtin_JMP_IF;

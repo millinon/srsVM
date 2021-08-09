@@ -132,7 +132,7 @@ int main(int argc, char* argv[]){
         goto cleanup;
     }
 
-    srsvm_vm_set_argv(vm, program_argv, program_argc);
+    srsvm_vm_set_argv(vm, (const char**) program_argv, program_argc);
 
     const char* mod_path = getenv(SRSVM_MOD_PATH_ENV_NAME);
 

@@ -83,6 +83,8 @@ srsvm_vm *srsvm_vm_alloc(void)
             goto error_cleanup;
         } else if((vm->module_map = srsvm_string_map_alloc(true)) == NULL){
             goto error_cleanup;
+	} else if((vm->register_map = srsvm_string_map_alloc(false)) == NULL){
+            goto error_cleanup;
         } else if((vm->mem_root = srsvm_mmu_alloc_virtual(NULL, SRSVM_MAX_PTR, 0)) == NULL){
             goto error_cleanup;
         } else if(! load_builtin_opcodes(vm->opcode_map)){
@@ -322,7 +324,9 @@ search_again:
                         search_multilib = false;
                         goto search_again;
                     } else goto error_cleanup;
-                }
+		} else {
+			vm->modules[mod_id] = mod;
+		}
             } else {
                 goto error_cleanup;
             }
@@ -461,6 +465,7 @@ srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const sr
 
     if(vm->registers[index] == NULL){
         reg = (vm->registers[index] = srsvm_register_alloc(name, index));
+	srsvm_string_map_insert(vm->register_map, name, reg);
     }
 
     return reg;

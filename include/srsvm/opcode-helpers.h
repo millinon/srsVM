@@ -104,12 +104,19 @@ static inline bool fault_on_not_writable(srsvm_thread *thread, srsvm_register *r
 	}
 }
 
-static inline bool set_register_error_bit(srsvm_register *reg, const char* error_str)
+static inline bool set_register_error_bit(srsvm_register *reg, const char* fmt, ...)
 {
 	ENSURE_WRITABLE(reg);
 
+	va_list args;
+
+	va_start(args, fmt);
+	
+	vsnprintf(reg->error_str, sizeof(reg->error_str), fmt, args);
+	
+	va_end(args);	
+
 	reg->error_flag = true;
-	reg->error_str = error_str;
 
 	return true;
 }
@@ -126,8 +133,8 @@ static inline bool clear_reg(srsvm_register *reg)
 	reg->value.str = NULL;
 	reg->value.str_len = 0;
 
+	memset(reg->error_str, 0, sizeof(reg->error_str));
 	reg->error_flag = false;
-	reg->error_str = NULL;
 
 	return true;
 }
@@ -259,9 +266,9 @@ static inline srsvm_register* register_lookup(const srsvm_vm *vm, srsvm_thread *
 {
 	srsvm_register *reg = NULL;
 
-	if(arg->type != SRSVM_ARG_TYPE_REGISTER){
-		thread_set_fault(thread, "Attempt to use a non-register value " PRINT_WORD_HEX " as a register", arg->value);
-	} else {
+	//if(arg->type != SRSVM_ARG_TYPE_REGISTER){
+	//	thread_set_fault(thread, "Attempt to use a non-register value " PRINT_WORD_HEX " as a register", arg->value);
+	//} else {
 		srsvm_word register_id = arg->value;
 
 		if(register_id< SRSVM_REGISTER_MAX_COUNT){
@@ -273,7 +280,7 @@ static inline srsvm_register* register_lookup(const srsvm_vm *vm, srsvm_thread *
 		} else {
 			thread_set_fault(thread, "Attempt to access register at invalid index " PRINT_WORD_HEX, register_id);
 		}
-	}
+	//}
 
 	return reg;
 }
