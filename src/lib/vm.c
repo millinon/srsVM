@@ -114,7 +114,7 @@ bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsv
         if(instruction->argc < opcode->argc_min || instruction->argc > opcode->argc_max){
             dbg_printf("invalid number of arguments " PRINT_WORD ", accepted range: [%hu,%hu]", PRINTF_WORD_PARAM(instruction->argc), opcode->argc_min, opcode->argc_max);
 
-            thread->fault_str = "Illegal instruction length";
+	    snprintf(thread->fault_str, sizeof(thread->fault_str), "Illegal instruction length");
             thread->has_fault = true;
         } else {
             dbg_puts("executing opcode...");
@@ -126,7 +126,7 @@ bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsv
     } else {
         dbg_printf("failed to locate opcode " PRINT_WORD_HEX, PRINTF_WORD_PARAM(instruction->opcode));
 
-        thread->fault_str = "Illegal instruction";
+	snprintf(thread->fault_str, sizeof(thread->fault_str), "Illegal instruction");
         thread->has_fault = true;
     }
 
@@ -167,8 +167,15 @@ void run_thread(void* arg)
 
         if(! srsvm_opcode_load_instruction(info->vm, info->thread->PC, &current_instruction)){
             info->thread->has_fault = true;
+	    snprintf(info->thread->fault_str, sizeof(info->thread->fault_str), "Failed to load instruction at address " PRINT_WORD, PRINTF_WORD_PARAM(info->thread->PC));
         } else {
-            info->thread->next_PC = info->thread->PC + sizeof(current_instruction.opcode) + sizeof(srsvm_word) * current_instruction.argc;
+            info->thread->next_PC = info->thread->PC + sizeof(current_instruction.opcode) + sizeof(srsvm_arg) * current_instruction.argc;
+
+	    dbg_printf("opcode: " PRINT_WORD_HEX, PRINTF_WORD_PARAM(current_instruction.opcode));
+	    dbg_printf("argc: " PRINT_WORD, PRINTF_WORD_PARAM(current_instruction.argc));
+	    for(srsvm_word i = 0; i < current_instruction.argc; i++){
+		dbg_printf("argv[" PRINT_WORD "]: { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(i), current_instruction.argv[i].type, PRINTF_WORD_PARAM(current_instruction.argv[i].value));
+	    }
 
             srsvm_vm_execute_instruction(info->vm, info->thread, &current_instruction);
         }

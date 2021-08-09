@@ -18,7 +18,7 @@ srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_ad
 
         thread->is_halted = false;
         thread->has_fault = false;
-        thread->fault_str = NULL;
+        memset(thread->fault_str, 0, sizeof(thread->fault_str));
 
         thread->fault_handler = NULL;
 

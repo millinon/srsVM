@@ -212,9 +212,9 @@ bool srsvm_opcode_load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_ins
             instruction->opcode &= ~OPCODE_ARGC_MASK;
 
             if(instruction->argc > 0){
-                if(! srsvm_mmu_load(seg, addr + (srsvm_word) (sizeof(instruction->opcode)), (srsvm_word) (instruction->argc * sizeof(srsvm_word)), &instruction->argv)){
+                if(! srsvm_mmu_load(seg, addr + (srsvm_word) (sizeof(instruction->opcode)), (srsvm_word) (instruction->argc * sizeof(srsvm_arg)), &instruction->argv)){
 
-                } else {
+	        } else {
                     success = true;
                 }
             } else {

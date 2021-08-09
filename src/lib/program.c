@@ -252,11 +252,14 @@ static bool deserialize_registers(FILE *stream, srsvm_program *program)
                     } else if(fread(&reg->name, sizeof(char), reg->name_len+1, stream) != reg->name_len+1){
                         dbg_puts("reg name short");
                         goto error_cleanup;
-                    } else if(fread(&reg->index, sizeof(reg->index), 1, stream) != 1){
-                        goto error_cleanup;
-                    } else if(reg->index > SRSVM_REGISTER_MAX_COUNT || claimed_slots[reg->index]){
-                        goto error_cleanup;
+                    //} else if(fread(&reg->index, sizeof(reg->index), 1, stream) != 1){
+                      //  goto error_cleanup;
                     } else {
+			reg->index = i;
+                    	if(reg->index > SRSVM_REGISTER_MAX_COUNT || claimed_slots[reg->index]){
+                       		goto error_cleanup;
+			}
+
                         if(program->registers == NULL){
                             program->registers = reg;
                         } else {
@@ -709,8 +712,8 @@ bool write_reg(FILE* stream, const srsvm_register_specification *reg)
         return false;
     } else if(fwrite(&reg->name, sizeof(char), reg->name_len+1, stream) != (reg->name_len+1)){
         return false;
-    } else if(fwrite(&reg->index, sizeof(reg->index), 1, stream) != 1){
-        return false;
+    //} else if(fwrite(&reg->index, sizeof(reg->index), 1, stream) != 1){
+    //    return false;
     } else if(reg->next == NULL){
         return true;
     } else return write_reg(stream, reg->next);

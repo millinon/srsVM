@@ -291,10 +291,6 @@ int main(int argc, char *argv[]){
         }
     }
 
-    /*srsvm_asm_line_parse(asm_prog, "LOAD_CONST $MSG \"Hello, world!\"", 1);
-      srsvm_asm_line_parse(asm_prog, "PUTS $MSG", 2);
-      srsvm_asm_line_parse(asm_prog, "HALT", 3);*/
-
     if(! have_fatal_error){
 
         srsvm_program *program = srsvm_asm_emit(asm_prog, 0x1000, (srsvm_word) word_alignment);

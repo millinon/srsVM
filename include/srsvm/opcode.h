@@ -41,7 +41,22 @@
 
 #define OPCODE_MAX_NAME_LEN 256
 
-typedef void (srsvm_opcode_func)(srsvm_vm*, srsvm_thread*, const srsvm_word argc, const srsvm_word argv[]);
+
+typedef uint8_t srsvm_arg_type;
+
+#define SRSVM_ARG_TYPE_NONE 0
+#define SRSVM_ARG_TYPE_WORD 1
+#define SRSVM_ARG_TYPE_REGISTER 2
+#define SRSVM_ARG_TYPE_CONSTANT 4
+
+typedef struct
+{
+	srsvm_word value;
+
+	srsvm_arg_type type;
+} srsvm_arg;
+
+typedef void (srsvm_opcode_func)(srsvm_vm*, srsvm_thread*, const srsvm_word argc, const srsvm_arg argv[]);
 
 struct srsvm_opcode
 {
@@ -93,8 +108,12 @@ bool opcode_map_insert(srsvm_opcode_map* map, srsvm_opcode* opcode);
 typedef struct
 {
     srsvm_word opcode;
-    srsvm_word argv[MAX_INSTRUCTION_ARGS];
+    
     srsvm_word argc;
+    
+    //srsvm_word argv[MAX_INSTRUCTION_ARGS];
+
+    srsvm_arg argv[MAX_INSTRUCTION_ARGS];
 } srsvm_instruction;
 
 bool srsvm_opcode_load_instruction(srsvm_vm *vm, const srsvm_ptr addr, srsvm_instruction *instruction);

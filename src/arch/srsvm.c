@@ -14,6 +14,13 @@
 
 bool srsvm_debug_mode;
 
+void fault_handler(srsvm_vm *vm, srsvm_thread *thread)
+{
+	if(thread->has_fault){
+		fprintf(stderr, "Thread " PRINT_WORD_HEX " has encountered a fault: %s\n", PRINTF_WORD_PARAM(thread->id), thread->fault_str);
+	}
+}
+
 void write_error(const char* message)
 {
     fprintf(stderr, "Error: %s\n", message);
@@ -129,9 +136,11 @@ int main(int argc, char* argv[]){
 
     const char* mod_path = getenv(SRSVM_MOD_PATH_ENV_NAME);
 
-	srsvm_vm_set_module_search_path(vm, mod_path);
+    srsvm_vm_set_module_search_path(vm, mod_path);
 
     main_thread = vm->main_thread;
+
+    srsvm_thread_set_fault_handler_native(main_thread, fault_handler);
 
     srsvm_vm_start_thread(vm, main_thread->id);
 

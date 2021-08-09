@@ -53,7 +53,8 @@ struct srsvm_thread
     bool is_halted;
 
     bool has_fault;
-    const char* fault_str;
+    //const char* fault_str;
+    char fault_str[1024];
 
     srsvm_thread_fault_handler fault_handler;
     srsvm_ptr fault_handler_addr;

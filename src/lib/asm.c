@@ -47,6 +47,7 @@ srsvm_assembly_line *srsvm_asm_line_alloc(void)
 
     return line;
 }
+
 void srsvm_asm_line_free(srsvm_assembly_line *line)
 {
     if(line != NULL){
@@ -375,7 +376,6 @@ static srsvm_constant_value* parse_const(const char* str_value)
                     value->str_len = str_len-2;
 
                     dbg_printf("found string constant: %s", str_value);
-
                 } else if(srsvm_strncasecmp(str_value, "TRUE", strlen(str_value)) == 0){
                     value = srsvm_const_alloc(SRSVM_TYPE_BIT);
                     value->bit = true;
@@ -974,7 +974,6 @@ search_again:
                 parsed = parse_const(const_str); 
 
                 if(parsed != NULL){
-
                     if(srsvm_string_map_contains(program->const_map, const_str)){
                         const_val = srsvm_string_map_lookup(program->const_map, const_str);
                         const_val->ref_count++;
@@ -1000,7 +999,8 @@ search_again:
                     }
 
                     if(parsed->type == SRSVM_TYPE_WORD && line->opcode != program->builtin_LOAD_CONST){
-                        line->assembled_instruction.argv[i + mod_op_offset] = parsed->word;
+                        line->assembled_instruction.argv[i + mod_op_offset].value = parsed->word;
+			line->assembled_instruction.argv[i + mod_op_offset].type = SRSVM_ARG_TYPE_WORD;
                     } else {
                         line->constant_references[line->num_constant_refs].c = const_val;
                         line->constant_references[line->num_constant_refs].arg_index = i + mod_op_offset;
@@ -1216,7 +1216,8 @@ static void module_lru_evict(const char* mod_name, void* evicted_data, void* sta
         // TODO: error
     } else {
         line->pre[line->pre_count].opcode = state_data->unload_opcode->code;
-        line->pre[line->pre_count].argv[0] = tag->slot_num;
+        line->pre[line->pre_count].argv[0].value = tag->slot_num;
+        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_WORD;
         line->pre[line->pre_count].argc = 1;
         line->pre_count++;
 
@@ -1430,16 +1431,21 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                         ERR_fmt("not enough space to insert module load '%s'", line->module_name);
                     } else {
                         line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
-                        line->pre[line->pre_count].argv[0] = assembled_mod_reg->index;
-                        line->pre[line->pre_count].argv[1] = mod_name_const->slot_num;
+                        line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
+                        line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
+                        line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_CONSTANT;
                         line->pre[line->pre_count].argc = 2;
 
                         line->pre_count++;
 
                         line->pre[line->pre_count].opcode = program->builtin_CMOD_LOAD->code;
-                        line->pre[line->pre_count].argv[0] = assembled_mod_reg->index;
-                        line->pre[line->pre_count].argv[1] = tag->slot_num;
-                        line->pre[line->pre_count].argv[2] = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
+                        line->pre[line->pre_count].argv[1].value = tag->slot_num;
+                        line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_WORD;
+                        line->pre[line->pre_count].argv[2].value = assembled_mod_reg->index;
+                        line->pre[line->pre_count].argv[2].type = SRSVM_ARG_TYPE_REGISTER;
                         line->pre[line->pre_count].argc = 3;
 
                         line->pre_count++;
@@ -1449,19 +1455,23 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                 }
 
                 line->assembled_instruction.opcode = program->builtin_CMOD_OP->code;
-                line->assembled_instruction.argv[0] = tag->slot_num;
-                line->assembled_instruction.argv[1] = line_op->code;
+                line->assembled_instruction.argv[0].value = tag->slot_num;
+                line->assembled_instruction.argv[0].type = SRSVM_ARG_TYPE_WORD;
+                line->assembled_instruction.argv[1].value = line_op->code;
+                line->assembled_instruction.argv[1].type = SRSVM_ARG_TYPE_WORD;
                 dbg_printf("mod op code = " PRINT_WORD_HEX, PRINTF_WORD_PARAM(line_op->code));
             } else {
                 line->assembled_instruction.opcode = line_op->code;
             }
 
             for(unsigned i = 0; i < line->num_register_refs; i++){
-                line->assembled_instruction.argv[line->register_references[i].arg_index] = line->register_references[i].reg->slot_num;
+                line->assembled_instruction.argv[line->register_references[i].arg_index].value = line->register_references[i].reg->slot_num;
+                line->assembled_instruction.argv[line->register_references[i].arg_index].type = SRSVM_ARG_TYPE_REGISTER;
             }
 
             for(unsigned i = 0; i < line->num_constant_refs; i++){
-                line->assembled_instruction.argv[line->constant_references[i].arg_index] = line->constant_references[i].c->slot_num;
+                line->assembled_instruction.argv[line->constant_references[i].arg_index].value = line->constant_references[i].c->slot_num;
+                line->assembled_instruction.argv[line->constant_references[i].arg_index].type = SRSVM_ARG_TYPE_CONSTANT;
             }
             
             //line->assembled_instruction.opcode = line_op->code;
@@ -1470,7 +1480,7 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
             line->assembled_size = 0;
 
             for(int i = 0; i < line->pre_count; i++){
-                size_t instruction_size = (1 + line->pre[i].argc) * sizeof(srsvm_word);
+                size_t instruction_size = (sizeof(srsvm_word) + line->pre[i].argc * sizeof(srsvm_arg));
 
                 if(word_alignment > 0){
                     instruction_size += ((word_alignment - (instruction_size % word_alignment)) % word_alignment) * sizeof(srsvm_word);
@@ -1479,14 +1489,14 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                 line->assembled_size += instruction_size;
             }
 
-            line->assembled_size += (1 + line->argc) * sizeof(srsvm_word);
+            line->assembled_size += (sizeof(srsvm_word) + line->argc * sizeof(srsvm_arg));
 
             if(word_alignment > 0){
                 line->assembled_size += ((word_alignment - (((1 + line->argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
             }
 
             for(int i = 0; i < line->post_count; i++){
-                size_t instruction_size = (1 + line->post[i].argc) * sizeof(srsvm_word);
+                size_t instruction_size = (sizeof(srsvm_word) + line->post[i].argc * sizeof(srsvm_arg));
 
                 if(word_alignment > 0){
                     instruction_size += ((word_alignment - (instruction_size % word_alignment)) % word_alignment) * sizeof(srsvm_word);
@@ -1522,7 +1532,8 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                                 ERR_fmt("failed to map jump for target label '%s'", line->jump_target);
                             }
 
-                            line->assembled_instruction.argv[line->jump_target_arg_index] = (srsvm_word) -offset;
+                            line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) -offset;
+                            line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
                         }
                     } else {
                         if(offset > SRSVM_MAX_PTR){
@@ -1538,7 +1549,8 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
                                 ERR_fmt("failed to map jump for target label '%s'", line->jump_target);
                             }
 
-                            line->assembled_instruction.argv[line->jump_target_arg_index] = (srsvm_word) offset;
+                            line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) offset;
+                            line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
                         }
                     }
                 }
@@ -1561,63 +1573,84 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
         if((program_memory->data = malloc(program->assembled_size)) == NULL){
             ERR_fmt("failed to allocate program memory: %s", strerror(errno));
         } else {
-            srsvm_word *ptr = program_memory->data;
+            void *ptr = program_memory->data;
 
             size_t padding_nops;
 
-            for(line = program->lines; line != NULL; line = line->next){
-                for(int i = 0; i < line->pre_count; i++){
-                    *(ptr++) = (OPCODE_MK_ARGC(line->pre[i].argc) | line->pre[i].opcode);
-                    memcpy(ptr, &line->pre[i].argv, line->pre[i].argc * sizeof(srsvm_word));
-                    ptr += line->pre[i].argc;
+	    for(line = program->lines; line != NULL; line = line->next){
+		    for(int i = 0; i < line->pre_count; i++){
+			    dbg_printf("emitting pre line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->pre[i].opcode), PRINTF_WORD_PARAM(line->pre[i].argc));
+			    for(srsvm_word j = 0; j < line->pre[i].argc; j++){
+				    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(j), line->pre->argv[j].type, PRINTF_WORD_PARAM(line->pre->argv[j].value));
+			    }
 
-                    if(word_alignment > 0){
-                        padding_nops = ((word_alignment - (((1 + line->pre[i].argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
+			    * (srsvm_word *) ptr = (OPCODE_MK_ARGC(line->pre[i].argc) | line->pre[i].opcode);
+			    ptr += sizeof(srsvm_word);
 
-                        for(int j = 0; j < padding_nops; j++){
-                            *(ptr++) = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
-                        }
-                    }
-                }
+			    memcpy(ptr, &line->pre[i].argv, line->pre[i].argc * sizeof(srsvm_arg));
+			    ptr += line->pre[i].argc * sizeof(srsvm_arg);
 
-                *(ptr++) = (OPCODE_MK_ARGC(line->assembled_instruction.argc) | line->assembled_instruction.opcode);
-                memcpy(ptr, &line->assembled_instruction.argv, line->assembled_instruction.argc * sizeof(srsvm_word));
-                ptr += line->assembled_instruction.argc;
-                
-                if(word_alignment > 0){
-                    padding_nops = ((word_alignment - (((1 + line->assembled_instruction.argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
-                    for(int j = 0; j < padding_nops; j++){
-                        *(ptr++) = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
-                    }
-                }
+			    if(word_alignment > 0){
+				    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->pre[i].argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
 
-                for(int i = 0; i < line->post_count; i++){
-                    *ptr = (OPCODE_MK_ARGC(line->post[i].argc) | line->post[i].opcode);
-                    ptr++;
-                    memcpy(ptr, &line->post[i].argv, line->post[i].argc * sizeof(srsvm_word));
-                    ptr += line->pre[i].argc;
+				    for(int j = 0; j < padding_nops; j++){
+					    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
+					    ptr += sizeof(srsvm_word);
+				    }
+			    }
+		    }
 
-                    if(word_alignment > 0){
-                        padding_nops = ((word_alignment - (((1 + line->post[i].argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
+		    dbg_printf("emitting line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->assembled_instruction.opcode), PRINTF_WORD_PARAM(line->assembled_instruction.argc));
+		    for(srsvm_word i = 0; i < line->assembled_instruction.argc; i++){
+			    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(i), line->assembled_instruction.argv[i].type, PRINTF_WORD_PARAM(line->assembled_instruction.argv[i].value));
+		    }
 
-                        for(int j = 0; j < padding_nops; j++){
-                            *(ptr++) = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
-                        }
-                    }
-                }
-            }
-        }
-        program_memory->readable = true;
-        program_memory->executable = true;
-        program_memory->locked = true;
-        out_program->num_lmem_segments = 1;
+		    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(line->assembled_instruction.argc) | line->assembled_instruction.opcode);
+		    ptr += sizeof(srsvm_word);
+		    memcpy(ptr, &line->assembled_instruction.argv, line->assembled_instruction.argc * sizeof(srsvm_arg));
+		    ptr += line->assembled_instruction.argc * sizeof(srsvm_arg);
+
+		    if(word_alignment > 0){
+			    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->assembled_instruction.argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
+			    for(int j = 0; j < padding_nops; j++){
+				    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
+				    ptr += sizeof(srsvm_word);
+			    }
+		    }
+
+		    for(int i = 0; i < line->post_count; i++){
+			    dbg_printf("emitting post line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->post[i].opcode), PRINTF_WORD_PARAM(line->post[i].argc));
+			    for(srsvm_word j = 0; j < line->post[i].argc; j++){
+				    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(j), line->post->argv[j].type, PRINTF_WORD_PARAM(line->post->argv[j].value));
+			    }
+			    
+			    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(line->post[i].argc) | line->post[i].opcode);
+			    ptr += sizeof(srsvm_word);
+			    memcpy(ptr, &line->post[i].argv, line->post[i].argc * sizeof(srsvm_arg));
+			    ptr += line->pre[i].argc * sizeof(srsvm_arg);
+
+			    if(word_alignment > 0){
+				    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->post[i].argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
+
+				    for(int j = 0; j < padding_nops; j++){
+					    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
+					    ptr += sizeof(srsvm_word);
+				    }
+			    }
+		    }
+	    }
+	}
+	program_memory->readable = true;
+	program_memory->executable = true;
+	program_memory->locked = true;
+	out_program->num_lmem_segments = 1;
     }
 
     return out_program;
 
 error_cleanup:
     if(out_program != NULL){
-        srsvm_program_free(out_program);
+	    srsvm_program_free(out_program);
     }
 
     return NULL;
