@@ -14,10 +14,17 @@
 
 bool srsvm_debug_mode;
 
-void fault_handler(srsvm_vm *vm, srsvm_thread *thread)
+void thread_fault_handler(srsvm_vm *vm, srsvm_thread *thread)
 {
 	if(thread->has_fault){
 		fprintf(stderr, "Thread " PRINT_WORD_HEX " has encountered a fault: %s\n", PRINTF_WORD_PARAM(thread->id), thread->fault_str);
+	}
+}
+
+void vm_fault_handler(srsvm_vm *vm)
+{
+	if(vm->has_fault){
+		fprintf(stderr, "The VM has encountered a fault: %s\n", vm->fault_str);
 	}
 }
 
@@ -140,8 +147,10 @@ int main(int argc, char* argv[]){
 
     main_thread = vm->main_thread;
 
-    srsvm_thread_set_fault_handler_native(main_thread, fault_handler);
+    srsvm_thread_set_fault_handler_native(main_thread, thread_fault_handler);
 
+    srsvm_vm_set_fault_handler(vm, vm_fault_handler);
+   
     srsvm_vm_start_thread(vm, main_thread->id);
 
     srsvm_vm_join_thread(vm, main_thread->id);

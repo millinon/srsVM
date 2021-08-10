@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,6 +72,7 @@ static inline bool resolve_arg_word(srsvm_vm *vm, srsvm_thread *thread, const sr
 					if(dest != NULL){
 						*dest = vm->constants[arg->value]->word;
 					}
+
 					success = true;
 				}
 				break;

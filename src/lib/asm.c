@@ -527,10 +527,17 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
                     raw = srsvm_strdup(str_value);
 
-                    if(! parse_unsigned_hex_word(raw, &value->word)){
-                        dbg_puts("word parse failed");
-                        srsvm_const_free(value);
-                        value = NULL;
+#if WORD_SIZE == 16 || WORD_SIZE == 32 || WORD_SIZE == 64
+
+		if(sscanf(raw, SCAN_WORD, &value->word) != 1 && sscanf(raw, SCAN_WORD_HEX, &value->word) != 1){
+#else
+
+		if(! parse_unsigned_hex_word(raw, &value->word)){
+
+#endif
+			dbg_puts("word parse failed");
+			srsvm_const_free(value);
+			value = NULL;
                     } else {
                         dbg_printf("parsed constant as word: " PRINT_WORD_HEX, PRINTF_WORD_PARAM(value->word));
                     }
@@ -540,19 +547,25 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
                 raw = srsvm_strdup(str_value);
 
-                if(! parse_unsigned_hex_word(raw, &value->word)){
-                    dbg_puts("word parse failed");
-                    srsvm_const_free(value);
-                    value = NULL;
-                } else {
-                    dbg_printf("parsed constant as word: " PRINT_WORD_HEX, PRINTF_WORD_PARAM(value->word));
-                }
-            }
-        }
+#if WORD_SIZE == 16 || WORD_SIZE == 32 || WORD_SIZE == 64
 
-        if(raw != NULL){
-            free(raw);
-        }
+		if(sscanf(raw, SCAN_WORD, &value->word) != 1 && sscanf(raw, SCAN_WORD_HEX, &value->word) != 1){
+#else
+
+		if(! parse_unsigned_hex_word(raw, &value->word)){
+
+#endif
+			dbg_puts("word parse failed");
+			srsvm_const_free(value);
+			value = NULL;
+		} else dbg_printf("parsed constant as word: " PRINT_WORD, PRINTF_WORD_PARAM(value->word));
+
+	    }
+	}
+
+	if(raw != NULL){
+		free(raw);
+	}
     }
 
     return value;
@@ -561,487 +574,487 @@ static srsvm_constant_value* parse_const(const char* str_value)
 
 static srsvm_opcode* parse_opcode(const srsvm_opcode_map *opcode_map, const char* opcode_str)
 {
-    srsvm_opcode *opcode = NULL;
+	srsvm_opcode *opcode = NULL;
 
-    if(opcode_map == NULL){
-        dbg_puts("map null");
-    } else if(opcode_str == NULL){
-        dbg_puts("str null");
-    }
+	if(opcode_map == NULL){
+		dbg_puts("map null");
+	} else if(opcode_str == NULL){
+		dbg_puts("str null");
+	}
 
-    if(opcode_map != NULL && opcode_str != NULL && strlen(opcode_str) > 0)
-    {
-        srsvm_word opcode_code;
+	if(opcode_map != NULL && opcode_str != NULL && strlen(opcode_str) > 0)
+	{
+		srsvm_word opcode_code;
 
-        if((opcode = opcode_lookup_by_name(opcode_map, opcode_str)) == NULL){
+		if((opcode = opcode_lookup_by_name(opcode_map, opcode_str)) == NULL){
 
-            if(! parse_unsigned_hex_word(opcode_str, &opcode_code)){
+			if(! parse_unsigned_hex_word(opcode_str, &opcode_code)){
 
-            } else {
-                opcode = opcode_lookup_by_code(opcode_map, opcode_code);
-            }
-        }
-    }
+			} else {
+				opcode = opcode_lookup_by_code(opcode_map, opcode_code);
+			}
+		}
+	}
 
-    return opcode;
+	return opcode;
 }
 
 typedef struct
 {
-    bool is_loaded;
-    //srsvm_word slot_num;
-    const char* mod_name;
-    //srsvm_word name_const_slot;
-    srsvm_assembly_program *program;
+	bool is_loaded;
+	//srsvm_word slot_num;
+	const char* mod_name;
+	//srsvm_word name_const_slot;
+	srsvm_assembly_program *program;
 } asm_mod_tag;
 
 bool srsvm_asm_line_parse(srsvm_assembly_program *program, const char* line_str, const char* input_filename, const unsigned long line_number)
 {
-    static char error_message_buf[4096] = { 0 };
+	static char error_message_buf[4096] = { 0 };
 #define ERR(msg) do { report_error(program, input_filename, line_number, msg, program->io_config); goto error_cleanup; } while(0)
 #define ERR_fmt(fmt, ...) do { snprintf(error_message_buf, sizeof(error_message_buf), fmt, __VA_ARGS__); ERR(error_message_buf); } while(0)
 
 #define WARN(msg) do { report_error(program, input_filename, line_number, msg, program->io_config); } while(0)
 #define WARN_fmt(fmt, ...) do { snprintf(error_message_buf, sizeof(error_message_buf), fmt, __VA_ARGS__); WARN(error_message_buf); } while(0)
 
-    bool success = false;
+	bool success = false;
 
-    srsvm_assembly_line *line = srsvm_asm_line_alloc();
+	srsvm_assembly_line *line = srsvm_asm_line_alloc();
 
-    if(line == NULL){
-        //goto error_cleanup;
-    }
+	if(line == NULL){
+		//goto error_cleanup;
+	}
 
-    line->line_number = line_number;
+	line->line_number = line_number;
 
 #if defined(DEBUG)
-    strncpy(line->original_line, line_str, sizeof(line->original_line));
+	strncpy(line->original_line, line_str, sizeof(line->original_line));
 #endif
 
-    dbg_printf("input line: '%s'",  line_str);
+	dbg_printf("input line: '%s'",  line_str);
 
-    size_t line_len = strlen(line_str);
-    char *writable_line = srsvm_strdup(line_str);
+	size_t line_len = strlen(line_str);
+	char *writable_line = srsvm_strdup(line_str);
 
-    if(writable_line == NULL){
-        goto error_cleanup;
-    }
+	if(writable_line == NULL){
+		goto error_cleanup;
+	}
 
-    char* label = NULL;
-    char* module = NULL;
-    char* opcode = NULL;
-    char* args[MAX_INSTRUCTION_ARGS] = { NULL };
-    int argc = 0;
+	char* label = NULL;
+	char* module = NULL;
+	char* opcode = NULL;
+	char* args[MAX_INSTRUCTION_ARGS] = { NULL };
+	int argc = 0;
 
-    bool in_arg_str = false; 
-    bool in_arg_esc = false;
+	bool in_arg_str = false; 
+	bool in_arg_esc = false;
 
-    line_lexer_state lex_state = LEX_INIT;
+	line_lexer_state lex_state = LEX_INIT;
 
-    dbg_printf("lexing '%s'", writable_line);
+	dbg_printf("lexing '%s'", writable_line);
 
-    for(size_t i = 0; i < line_len && lex_state != LEX_ERROR && lex_state != LEX_COMMENT; i++){
-        char c = writable_line[i];
+	for(size_t i = 0; i < line_len && lex_state != LEX_ERROR && lex_state != LEX_COMMENT; i++){
+		char c = writable_line[i];
 
-        if(c == 0) break;
+		if(c == 0) break;
 
-        switch(lex_state){
-            case LEX_INIT:
-                if(! isspace(c)){
-                    opcode = writable_line + i;
-                    lex_state = LEX_OPCODE;
-                }
+		switch(lex_state){
+			case LEX_INIT:
+				if(! isspace(c)){
+					opcode = writable_line + i;
+					lex_state = LEX_OPCODE;
+				}
 
-                break;
+				break;
 
-            case LEX_LABEL:
-                if(label == NULL){
-                    label = writable_line + i;
-                }
+			case LEX_LABEL:
+				if(label == NULL){
+					label = writable_line + i;
+				}
 
-                if(isspace(c)){
-                    lex_state = LEX_OPCODE;
-                } else if(!isalpha(c) && !isdigit(c)){
-                    switch(c){
-                        case ':':
-                            writable_line[i] = 0;
-                            lex_state = LEX_OPCODE;
-                            break;
-                    }
-                }
-                break;
+				if(isspace(c)){
+					lex_state = LEX_OPCODE;
+				} else if(!isalpha(c) && !isdigit(c)){
+					switch(c){
+						case ':':
+							writable_line[i] = 0;
+							lex_state = LEX_OPCODE;
+							break;
+					}
+				}
+				break;
 
-            case LEX_OPCODE:
-                if(opcode == NULL){
-                    opcode = writable_line + i;
-                }
+			case LEX_OPCODE:
+				if(opcode == NULL){
+					opcode = writable_line + i;
+				}
 
-                if(isspace(c)){
-                    if(opcode != NULL){
-                        writable_line[i] = 0;
-                        lex_state = LEX_ARG;
-                    }
-                } else if(!isalpha(c) && !isdigit(c) && c != '_'){
-                    switch(c){
-                        case ':':
-                            if(opcode != NULL){
-                                writable_line[i] = 0;
-                                label = opcode;
-                                opcode = NULL;
-                                lex_state = LEX_LABEL;
-                            } else {
-                                lex_state = LEX_ERROR;
-                            }
-                            break;
+				if(isspace(c)){
+					if(opcode != NULL){
+						writable_line[i] = 0;
+						lex_state = LEX_ARG;
+					}
+				} else if(!isalpha(c) && !isdigit(c) && c != '_'){
+					switch(c){
+						case ':':
+							if(opcode != NULL){
+								writable_line[i] = 0;
+								label = opcode;
+								opcode = NULL;
+								lex_state = LEX_LABEL;
+							} else {
+								lex_state = LEX_ERROR;
+							}
+							break;
 
-                        case '.':
-                            break;
+						case '.':
+							break;
 
-                        case ';':
-                            writable_line[i] = 0;
-                            lex_state = LEX_COMMENT;
-                            break;
+						case ';':
+							writable_line[i] = 0;
+							lex_state = LEX_COMMENT;
+							break;
 
-                        default:
-                            lex_state = LEX_ERROR;
-                            break;
-                    }
-                }
-                break;
+						default:
+							lex_state = LEX_ERROR;
+							break;
+					}
+				}
+				break;
 
-            case LEX_ARG:
-                if(argc >= MAX_INSTRUCTION_ARGS){
-                    dbg_printf("bailing on too many args: %d\n", argc);
-                    argc = MAX_INSTRUCTION_ARGS;
-                    lex_state = LEX_ERROR;
-                } else {
-                    if(args[argc] == NULL){
-                        if(! isspace(c) && c != ';'){
-                            dbg_printf("found arg at char '%c'", c);
-                            args[argc] = writable_line + i;
-                        }
-                    } else {
-                        if((isspace(c) || c == ';') && !in_arg_esc && !in_arg_str){
-                            writable_line[i] = 0;
-                            if(args[argc] != NULL){
-                                dbg_printf("ending arg at char '%c'", c);
-                                argc++;
-                            }
-                        }
-                    }
+			case LEX_ARG:
+				if(argc >= MAX_INSTRUCTION_ARGS){
+					dbg_printf("bailing on too many args: %d\n", argc);
+					argc = MAX_INSTRUCTION_ARGS;
+					lex_state = LEX_ERROR;
+				} else {
+					if(args[argc] == NULL){
+						if(! isspace(c) && c != ';'){
+							dbg_printf("found arg at char '%c'", c);
+							args[argc] = writable_line + i;
+						}
+					} else {
+						if((isspace(c) || c == ';') && !in_arg_esc && !in_arg_str){
+							writable_line[i] = 0;
+							if(args[argc] != NULL){
+								dbg_printf("ending arg at char '%c'", c);
+								argc++;
+							}
+						}
+					}
 
-                    if(in_arg_str){
-                        if(in_arg_esc){
-                            in_arg_esc = false;
-                        } else {
-                            switch(c){
-                                case '\\':
-                                    in_arg_esc = true;
-                                    break;
+					if(in_arg_str){
+						if(in_arg_esc){
+							in_arg_esc = false;
+						} else {
+							switch(c){
+								case '\\':
+									in_arg_esc = true;
+									break;
 
-                                case '"':
-                                    in_arg_str = false;
-                                    if(args[argc] != NULL){
-                                        dbg_printf("ending arg at char '%c'", c);
-                                        argc++;
-                                    }
-                                    break;
-                            }
-                        }
-                    } else {
-                        if(! in_arg_esc){
-                            if(isspace(c)){
-                                writable_line[i] = 0;
-                                if(args[argc] != NULL){
-                                    dbg_printf("ending arg at char '%c'", c);
-                                    argc++;
-                                }
-                            } else {
-                                switch(c){
-                                    case '"':
-                                        in_arg_str = true;
-                                        break;
+								case '"':
+									in_arg_str = false;
+									if(args[argc] != NULL){
+										dbg_printf("ending arg at char '%c'", c);
+										argc++;
+									}
+									break;
+							}
+						}
+					} else {
+						if(! in_arg_esc){
+							if(isspace(c)){
+								writable_line[i] = 0;
+								if(args[argc] != NULL){
+									dbg_printf("ending arg at char '%c'", c);
+									argc++;
+								}
+							} else {
+								switch(c){
+									case '"':
+										in_arg_str = true;
+										break;
 
-                                    case ';':
-                                        writable_line[i] = 0;
-                                        if(args[argc] != NULL){
-                                            dbg_printf("ending arg at char '%c'", c);
-                                            argc++;
-                                        }
+									case ';':
+										writable_line[i] = 0;
+										if(args[argc] != NULL){
+											dbg_printf("ending arg at char '%c'", c);
+											argc++;
+										}
 
-                                        lex_state = LEX_COMMENT;
-                                        break;
+										lex_state = LEX_COMMENT;
+										break;
 
-                                    default:
-                                        break;
-                                }
-                            }
-                        } else {
-                            in_arg_esc = false;
-                        }
-                    }
-                }
-                break;
+									default:
+										break;
+								}
+							}
+						} else {
+							in_arg_esc = false;
+						}
+					}
+				}
+				break;
 
-            default:
-                break;
-        }
-    }
+			default:
+				break;
+		}
+	}
 
-    if(in_arg_str){ // error: unterminated string
+	if(in_arg_str){ // error: unterminated string
 
-        dbg_puts("unterminated string");
-        goto error_cleanup;
-    }
+		dbg_puts("unterminated string");
+		goto error_cleanup;
+	}
 
-    if(lex_state == LEX_ERROR){
-        dbg_puts("lexing failed");
-        goto error_cleanup;
-    }
+	if(lex_state == LEX_ERROR){
+		dbg_puts("lexing failed");
+		goto error_cleanup;
+	}
 
-    if(lex_state == LEX_ARG){
-        if(args[argc] != NULL){
-            argc++;
-        }
-    }
+	if(lex_state == LEX_ARG){
+		if(args[argc] != NULL){
+			argc++;
+		}
+	}
 
-    success = true;
+	success = true;
 
-    bool insert_label = false;
+	bool insert_label = false;
 
-    if(label != NULL){
-        strncpy(line->label, label, sizeof(line->label));
+	if(label != NULL){
+		strncpy(line->label, label, sizeof(line->label));
 
-        if(srsvm_string_map_contains(program->label_map, label)){
-            goto error_cleanup;
-        }
+		if(srsvm_string_map_contains(program->label_map, label)){
+			goto error_cleanup;
+		}
 
-        insert_label = true;
-    } else {
-        line->label[0] = 0;
-    }
+		insert_label = true;
+	} else {
+		line->label[0] = 0;
+	}
 
-    int mod_op_offset = 0;
+	int mod_op_offset = 0;
 
-    if(opcode != NULL && strlen(opcode) > 0){
+	if(opcode != NULL && strlen(opcode) > 0){
 
-        dbg_printf("opcode = '%s'", opcode);
+		dbg_printf("opcode = '%s'", opcode);
 
-        char *mod_separator = strrchr(opcode, '.');
+		char *mod_separator = strrchr(opcode, '.');
 
-        if(mod_separator != NULL){
-            module = opcode;
-            *mod_separator = 0;
-            opcode = mod_separator + 1;
+		if(mod_separator != NULL){
+			module = opcode;
+			*mod_separator = 0;
+			opcode = mod_separator + 1;
 
-            strncpy(line->module_name, module, sizeof(line->module_name));
+			strncpy(line->module_name, module, sizeof(line->module_name));
 
-            if(*opcode == 0){
-                goto error_cleanup;
-            }
+			if(*opcode == 0){
+				goto error_cleanup;
+			}
 
-            srsvm_module *mod = NULL;
+			srsvm_module *mod = NULL;
 
-            if(! srsvm_string_map_contains(program->mod_map, module)){
-                bool search_multilib = true;
-                char *mod_filename = NULL;
+			if(! srsvm_string_map_contains(program->mod_map, module)){
+				bool search_multilib = true;
+				char *mod_filename = NULL;
 
 search_again:
-                mod_filename = srsvm_module_find(module, NULL, program->module_search_path, search_multilib);
+				mod_filename = srsvm_module_find(module, NULL, program->module_search_path, search_multilib);
 
-                if(mod_filename == NULL){
-                    ERR_fmt("failed to locate module '%s'", module);
-                } else {
-                    mod = srsvm_module_alloc(module, mod_filename, program->mod_map->count);
+				if(mod_filename == NULL){
+					ERR_fmt("failed to locate module '%s'", module);
+				} else {
+					mod = srsvm_module_alloc(module, mod_filename, program->mod_map->count);
 
-                    if(mod == NULL){
-                        ERR_fmt("failed to load module file '%s'", mod_filename);
-                    }
+					if(mod == NULL){
+						ERR_fmt("failed to load module file '%s'", mod_filename);
+					}
 
-                    if(mod != NULL){
-                        if((mod->tag = malloc(sizeof(asm_mod_tag))) == NULL){
-                            ERR_fmt("failed to allocate module tag: %s", strerror(errno));
-                        } else {
-                            ((asm_mod_tag*) mod->tag)->is_loaded = false;
-			    ((asm_mod_tag*) mod->tag)->program = program;
-                        }
-                        
-                        mod->ref_count = 1;
+					if(mod != NULL){
+						if((mod->tag = malloc(sizeof(asm_mod_tag))) == NULL){
+							ERR_fmt("failed to allocate module tag: %s", strerror(errno));
+						} else {
+							((asm_mod_tag*) mod->tag)->is_loaded = false;
+							((asm_mod_tag*) mod->tag)->program = program;
+						}
 
-                        if(! srsvm_string_map_insert(program->mod_map, module, mod)){
-                            srsvm_module_free(mod);
-                            mod = NULL;
+						mod->ref_count = 1;
 
-                            goto error_cleanup;
-                        }
-                    } else if(search_multilib && (mod_filename == NULL || mod == NULL)){
-                        search_multilib = false;
+						if(! srsvm_string_map_insert(program->mod_map, module, mod)){
+							srsvm_module_free(mod);
+							mod = NULL;
 
-                        goto search_again;
-                    }
-                }
+							goto error_cleanup;
+						}
+					} else if(search_multilib && (mod_filename == NULL || mod == NULL)){
+						search_multilib = false;
 
-                if(mod == NULL){
-                    ERR_fmt("failed to load module '%s'", module);
-                }
-            } else {
-                mod = srsvm_string_map_lookup(program->mod_map, module);
+						goto search_again;
+					}
+				}
 
-                if(mod == NULL){
-                    ERR_fmt("failed to locate module '%s'", module);
-                }
+				if(mod == NULL){
+					ERR_fmt("failed to load module '%s'", module);
+				}
+			} else {
+				mod = srsvm_string_map_lookup(program->mod_map, module);
 
-                mod->ref_count++;
-            }
+				if(mod == NULL){
+					ERR_fmt("failed to locate module '%s'", module);
+				}
 
-            line->opcode = parse_opcode(mod->opcode_map, opcode);
+				mod->ref_count++;
+			}
 
-            //line->opcode = parse_opcode(mod->opcode_map, opcode);
+			line->opcode = parse_opcode(mod->opcode_map, opcode);
 
-            mod_op_offset = 2;
-        } else {
-            line->module_name[0] = 0;
+			//line->opcode = parse_opcode(mod->opcode_map, opcode);
 
-            line->opcode = parse_opcode(program->opcode_map, opcode); 
-        }
+			mod_op_offset = 2;
+		} else {
+			line->module_name[0] = 0;
 
-        if(line->opcode == NULL){
-            ERR_fmt("failed to resolve opcode '%s'", opcode);
-        }
+			line->opcode = parse_opcode(program->opcode_map, opcode); 
+		}
 
-    } else {
-        line->opcode = program->builtin_NOP;
-    }
+		if(line->opcode == NULL){
+			ERR_fmt("failed to resolve opcode '%s'", opcode);
+		}
 
-    line->argc = argc + mod_op_offset;
+	} else {
+		line->opcode = program->builtin_NOP;
+	}
 
-    dbg_printf("line argc = " PRINT_WORD, PRINTF_WORD_PARAM(line->argc));
+	line->argc = argc + mod_op_offset;
 
-    if(argc < line->opcode->argc_min){
-        WARN_fmt("line has %lu args, outside expected range [%u, %u]", (unsigned long) argc, line->opcode->argc_min, line->opcode->argc_max);
-    } else if(argc > line->opcode->argc_max){
-        WARN_fmt("line has %lu args, outside expected range [%u, %u]", (unsigned long) argc, line->opcode->argc_min, line->opcode->argc_max);
-    }
+	dbg_printf("line argc = " PRINT_WORD, PRINTF_WORD_PARAM(line->argc));
 
-    for(int i = 0; i < argc; i++){
-        char *arg = args[i];
+	if(argc < line->opcode->argc_min){
+		WARN_fmt("line has %lu args, outside expected range [%u, %u]", (unsigned long) argc, line->opcode->argc_min, line->opcode->argc_max);
+	} else if(argc > line->opcode->argc_max){
+		WARN_fmt("line has %lu args, outside expected range [%u, %u]", (unsigned long) argc, line->opcode->argc_min, line->opcode->argc_max);
+	}
 
-        dbg_printf("args[%i] = '%s'", i, arg);
+	for(int i = 0; i < argc; i++){
+		char *arg = args[i];
 
-        char *const_str = arg;
-        srsvm_assembly_constant *const_val;
-        srsvm_constant_value *parsed;
+		dbg_printf("args[%i] = '%s'", i, arg);
 
-        switch(arg[0]){
-            case '$':
-                if(strlen(arg) == 1){
-                    ERR("truncated register name");
-                } 
+		char *const_str = arg;
+		srsvm_assembly_constant *const_val;
+		srsvm_constant_value *parsed;
 
-                srsvm_assembly_register *reg;
-                if(srsvm_string_map_contains(program->reg_map, arg)){
-                    reg = srsvm_string_map_lookup(program->reg_map, arg);
+		switch(arg[0]){
+			case '$':
+				if(strlen(arg) == 1){
+					ERR("truncated register name");
+				} 
 
-                    reg->ref_count++;
-                } else {
-                    reg = malloc(sizeof(srsvm_assembly_register));
+				srsvm_assembly_register *reg;
+				if(srsvm_string_map_contains(program->reg_map, arg)){
+					reg = srsvm_string_map_lookup(program->reg_map, arg);
 
-                    if(reg == NULL){
-                        ERR_fmt("failed to allocate register: %s", strerror(errno));
-                    }
+					reg->ref_count++;
+				} else {
+					reg = malloc(sizeof(srsvm_assembly_register));
 
-                    strncpy(reg->name, arg, sizeof(reg->name));
-                    reg->ref_count = 1;
+					if(reg == NULL){
+						ERR_fmt("failed to allocate register: %s", strerror(errno));
+					}
 
-                    if(! srsvm_string_map_insert(program->reg_map, reg->name, reg)){
-                        free(reg);
-                        ERR_fmt("failed to map register '%s'", reg->name);
-                    }
-                }
+					strncpy(reg->name, arg, sizeof(reg->name));
+					reg->ref_count = 1;
 
-                line->register_references[line->num_register_refs].reg = reg;
-                line->register_references[line->num_register_refs].arg_index = i + mod_op_offset;
-                line->num_register_refs++;
+					if(! srsvm_string_map_insert(program->reg_map, reg->name, reg)){
+						free(reg);
+						ERR_fmt("failed to map register '%s'", reg->name);
+					}
+				}
 
-                break;
+				line->register_references[line->num_register_refs].reg = reg;
+				line->register_references[line->num_register_refs].arg_index = i + mod_op_offset;
+				line->num_register_refs++;
 
-            case '#':
-                if(strlen(arg) == 1){
-                    ERR("truncated label name");
-                }
+				break;
 
-                strncpy(line->jump_target, arg+1, sizeof(line->jump_target));
+			case '#':
+				if(strlen(arg) == 1){
+					ERR("truncated label name");
+				}
 
-                break;
+				strncpy(line->jump_target, arg+1, sizeof(line->jump_target));
 
-            default:
-                parsed = parse_const(const_str); 
+				break;
 
-                if(parsed != NULL){
-                    if(srsvm_string_map_contains(program->const_map, const_str)){
-                        const_val = srsvm_string_map_lookup(program->const_map, const_str);
-                        const_val->ref_count++;
+			default:
+				parsed = parse_const(const_str); 
 
-                        srsvm_const_free(parsed);
-                        parsed = const_val->value;
-                    } else {
-                        const_val = malloc(sizeof(srsvm_assembly_constant));
+				if(parsed != NULL){
+					if(srsvm_string_map_contains(program->const_map, const_str)){
+						const_val = srsvm_string_map_lookup(program->const_map, const_str);
+						const_val->ref_count++;
 
-                        if(const_val == NULL){
-                            ERR_fmt("failed to allocate constant: %s", strerror(errno));
-                        }
+						srsvm_const_free(parsed);
+						parsed = const_val->value;
+					} else {
+						const_val = malloc(sizeof(srsvm_assembly_constant));
 
-                        const_val->value = parsed;
-                        const_val->ref_count = 1;
+						if(const_val == NULL){
+							ERR_fmt("failed to allocate constant: %s", strerror(errno));
+						}
 
-                        if(! srsvm_string_map_insert(program->const_map, const_str, const_val)){
-                            srsvm_const_free(parsed);
-                            free(const_val);
+						const_val->value = parsed;
+						const_val->ref_count = 1;
 
-                            ERR_fmt("failed to map constant '%s'", const_str);
-                        }
-                    }
+						if(! srsvm_string_map_insert(program->const_map, const_str, const_val)){
+							srsvm_const_free(parsed);
+							free(const_val);
 
-                    if(parsed->type == SRSVM_TYPE_WORD){
-                        line->assembled_instruction.argv[i + mod_op_offset].value = parsed->word;
-			line->assembled_instruction.argv[i + mod_op_offset].type = SRSVM_ARG_TYPE_WORD;
-                    } else {
-                        line->constant_references[line->num_constant_refs].c = const_val;
-                        line->constant_references[line->num_constant_refs].arg_index = i + mod_op_offset;
-                        line->num_constant_refs++;
-                    }
-                }
-                break;
-        }
-    }
+							ERR_fmt("failed to map constant '%s'", const_str);
+						}
+					}
 
-    if(insert_label){
-        srsvm_string_map_insert(program->label_map, line->label, line);
-    }
+					if(parsed->type == SRSVM_TYPE_WORD && line->opcode != program->builtin_LOAD_CONST){
+						line->assembled_instruction.argv[i + mod_op_offset].value = parsed->word;
+						line->assembled_instruction.argv[i + mod_op_offset].type = SRSVM_ARG_TYPE_WORD;
+					} else {
+						line->constant_references[line->num_constant_refs].c = const_val;
+						line->constant_references[line->num_constant_refs].arg_index = i + mod_op_offset;
+						line->num_constant_refs++;
+					}
+				}
+				break;
+		}
+	}
 
-    if(program->lines == NULL){
-        program->lines = line;
-        line->prev = NULL;
-    } else {
-        line->prev = program->last_line;
-        program->last_line->next = line;
-    }
-    program->last_line = line;
-    line->next = NULL;
-    program->line_count++;
+	if(insert_label){
+		srsvm_string_map_insert(program->label_map, line->label, line);
+	}
 
-    return success;
+	if(program->lines == NULL){
+		program->lines = line;
+		line->prev = NULL;
+	} else {
+		line->prev = program->last_line;
+		program->last_line->next = line;
+	}
+	program->last_line = line;
+	line->next = NULL;
+	program->line_count++;
+
+	return success;
 
 error_cleanup:
-    if(writable_line != NULL){
-        //free(writable_line);
-    }
+	if(writable_line != NULL){
+		//free(writable_line);
+	}
 
-    if(line != NULL){
-        srsvm_asm_line_free(line);
-    }
+	if(line != NULL){
+		srsvm_asm_line_free(line);
+	}
 
-    return false;
+	return false;
 #undef ERR
 #undef ERR_fmt
 
@@ -1051,22 +1064,22 @@ error_cleanup:
 
 void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, const char** search_path)
 {
-    if(program != NULL){
-        if(search_path != NULL){
-            size_t path_count = 0;
-            const char* path;
-            do {
-                path = search_path[path_count++];
-            } while(path != NULL);
+	if(program != NULL){
+		if(search_path != NULL){
+			size_t path_count = 0;
+			const char* path;
+			do {
+				path = search_path[path_count++];
+			} while(path != NULL);
 
-            char ** arr = malloc(path_count * sizeof(char*));
-            memset(arr, 0, (path_count * sizeof(char*)));
-            for(size_t i = 0; i < path_count - 1; i++){
-                arr[i] = srsvm_strdup(search_path[i]);
-            }
+			char ** arr = malloc(path_count * sizeof(char*));
+			memset(arr, 0, (path_count * sizeof(char*)));
+			for(size_t i = 0; i < path_count - 1; i++){
+				arr[i] = srsvm_strdup(search_path[i]);
+			}
 
-            program->module_search_path = arr;
-        } else {
+			program->module_search_path = arr;
+		} else {
 			const char** path = malloc(sizeof(char*) * 2);
 			path[0] = "mod";
 			path[1] = NULL;
@@ -1074,185 +1087,185 @@ void srsvm_asm_program_set_search_path(srsvm_assembly_program *program, const ch
 			srsvm_asm_program_set_search_path(program, path);
 
 			free(path);
-        }
-    }
+		}
+	}
 }
 
 typedef struct
 {
-    void **data;
-    size_t count;
+	void **data;
+	size_t count;
 } flattened_tree;
 
 static void assign_next_value(const char* key, void* value, void* arg)
 {
-    flattened_tree *flat_data = (flattened_tree*) arg;
+	flattened_tree *flat_data = (flattened_tree*) arg;
 
-    flat_data->data[flat_data->count++] = value;
+	flat_data->data[flat_data->count++] = value;
 }
 
 static int compare_registers(const void* a, const void* b)
 {
-    srsvm_assembly_register *reg_a = *(srsvm_assembly_register**) a;
-    srsvm_assembly_register *reg_b = *(srsvm_assembly_register**) b;
+	srsvm_assembly_register *reg_a = *(srsvm_assembly_register**) a;
+	srsvm_assembly_register *reg_b = *(srsvm_assembly_register**) b;
 
-    return reg_b->ref_count - reg_a->ref_count;
+	return reg_b->ref_count - reg_a->ref_count;
 }
 
 static bool flatten_registers(srsvm_assembly_program *program)
 {
-    bool success = false;
+	bool success = false;
 
-    if(program->registers != NULL){
-        free(program->registers);
-    }
+	if(program->registers != NULL){
+		free(program->registers);
+	}
 
-    program->registers = malloc(sizeof(srsvm_assembly_register*) * program->reg_map->count);
+	program->registers = malloc(sizeof(srsvm_assembly_register*) * program->reg_map->count);
 
-    program->num_registers = 0;
+	program->num_registers = 0;
 
-    if(program->registers != NULL){
+	if(program->registers != NULL){
 
-        flattened_tree flat_data;
-        flat_data.data = (void**)program->registers;
-        flat_data.count = 0;
+		flattened_tree flat_data;
+		flat_data.data = (void**)program->registers;
+		flat_data.count = 0;
 
-        srsvm_string_map_walk(program->reg_map, assign_next_value, &flat_data);
+		srsvm_string_map_walk(program->reg_map, assign_next_value, &flat_data);
 
-        qsort(flat_data.data, flat_data.count, sizeof(srsvm_assembly_register*), compare_registers);
+		qsort(flat_data.data, flat_data.count, sizeof(srsvm_assembly_register*), compare_registers);
 
-        dbg_printf("found %ld registers", flat_data.count);
+		dbg_printf("found %ld registers", flat_data.count);
 
-        for(srsvm_word i = 0; i < flat_data.count; i++){
-            program->registers[i]->slot_num = i;
-        }
+		for(srsvm_word i = 0; i < flat_data.count; i++){
+			program->registers[i]->slot_num = i;
+		}
 
-        program->num_registers = flat_data.count;
+		program->num_registers = flat_data.count;
 
-        success = true;
-    }
+		success = true;
+	}
 
-    return success;
+	return success;
 }
 
 static int compare_constants(const void* a, const void* b)
 {
-    srsvm_assembly_constant *const_a = *(srsvm_assembly_constant**) a;
-    srsvm_assembly_constant *const_b = *(srsvm_assembly_constant**) b;
+	srsvm_assembly_constant *const_a = *(srsvm_assembly_constant**) a;
+	srsvm_assembly_constant *const_b = *(srsvm_assembly_constant**) b;
 
-    return const_b->ref_count - const_a->ref_count;
+	return const_b->ref_count - const_a->ref_count;
 }
 
 static bool flatten_constants(srsvm_assembly_program *program)
 {
-    bool success = false;
+	bool success = false;
 
-    if(program->constants != NULL){
-        free(program->constants);
-    }
+	if(program->constants != NULL){
+		free(program->constants);
+	}
 
-    program->constants = malloc(sizeof(srsvm_assembly_constant*) * program->const_map->count);
+	program->constants = malloc(sizeof(srsvm_assembly_constant*) * program->const_map->count);
 
-    program->num_constants = 0;
+	program->num_constants = 0;
 
-    if(program->constants != NULL){
+	if(program->constants != NULL){
 
-        flattened_tree flat_data;
-        flat_data.data = (void**) program->constants;
-        flat_data.count = 0;
+		flattened_tree flat_data;
+		flat_data.data = (void**) program->constants;
+		flat_data.count = 0;
 
-        srsvm_string_map_walk(program->const_map, assign_next_value, &flat_data);
+		srsvm_string_map_walk(program->const_map, assign_next_value, &flat_data);
 
-        qsort(flat_data.data, flat_data.count, sizeof(srsvm_assembly_constant*), compare_constants);
+		qsort(flat_data.data, flat_data.count, sizeof(srsvm_assembly_constant*), compare_constants);
 
-        dbg_printf("found %ld constants", flat_data.count);
+		dbg_printf("found %ld constants", flat_data.count);
 
-        for(srsvm_word i = 0; i < flat_data.count; i++){
-            program->constants[i]->slot_num = i;
-        }
+		for(srsvm_word i = 0; i < flat_data.count; i++){
+			program->constants[i]->slot_num = i;
+		}
 
-        program->num_constants = flat_data.count;
+		program->num_constants = flat_data.count;
 
-        success = true;
-    }
+		success = true;
+	}
 
-    return success;
+	return success;
 }
 
 static long compute_byte_offset(srsvm_assembly_line *from, srsvm_assembly_line *to)
 {
-    long bytes = 0;
+	long bytes = 0;
 
-    if(from->line_number < to->line_number){
-        for(srsvm_assembly_line *line = from; line != to; line = line->next){
-            bytes += line->assembled_size;
-        }
-    } else if(from->line_number > to->line_number){
-        for(srsvm_assembly_line *line = to; line != from; line = line->next){
-            bytes -= line->assembled_size;
-        }
+	if(from->line_number < to->line_number){
+		for(srsvm_assembly_line *line = from; line != to; line = line->next){
+			bytes += line->assembled_size;
+		}
+	} else if(from->line_number > to->line_number){
+		for(srsvm_assembly_line *line = to; line != from; line = line->next){
+			bytes -= line->assembled_size;
+		}
 
-        bytes += to->assembled_size;
-        bytes -= from->assembled_size;
-    }
+		//bytes += to->assembled_size;
+		//bytes -= from->assembled_size;
+	}
 
-    return bytes;
+	return bytes;
 }
 
 typedef struct 
 {
-    srsvm_assembly_line **line_ptr;
-    srsvm_opcode *unload_opcode;
-    //srsvm_word next_slot;
+	srsvm_assembly_line **line_ptr;
+	srsvm_opcode *unload_opcode;
+	//srsvm_word next_slot;
 } mod_cache_data;
 
 static void module_lru_evict(const char* mod_name, void* evicted_data, void* state)
 {
-    srsvm_module *mod = evicted_data;
+	srsvm_module *mod = evicted_data;
 
-    mod_cache_data *state_data = state;
+	mod_cache_data *state_data = state;
 
-    asm_mod_tag *tag = mod->tag;
+	asm_mod_tag *tag = mod->tag;
 
-    srsvm_assembly_line *line = *state_data->line_ptr;
+	srsvm_assembly_line *line = *state_data->line_ptr;
 
-    if(line->pre_count >= SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
-        // TODO: error
-    } else {
-        srsvm_assembly_constant *const_val = srsvm_string_map_lookup(tag->program->const_map, tag->mod_name);
-
-	if(const_val != NULL){
-		line->pre[line->pre_count].opcode = state_data->unload_opcode->code;
-		line->pre[line->pre_count].argv[0].value = const_val->slot_num;
-		line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_CONSTANT;
-		line->pre[line->pre_count].argc = 1;
-		line->pre_count++;
+	if(line->pre_count >= SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
+		// TODO: error
 	} else {
-		// TODO: fail?
-	}
-        
-	//state_data->next_slot = tag->slot_num;
+		srsvm_assembly_constant *const_val = srsvm_string_map_lookup(tag->program->const_map, tag->mod_name);
 
-        tag->is_loaded = false;
-    }
+		if(const_val != NULL){
+			line->pre[line->pre_count].opcode = state_data->unload_opcode->code;
+			line->pre[line->pre_count].argv[0].value = const_val->slot_num;
+			line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_CONSTANT;
+			line->pre[line->pre_count].argc = 1;
+			line->pre_count++;
+		} else {
+			// TODO: fail?
+		}
+
+		//state_data->next_slot = tag->slot_num;
+
+		tag->is_loaded = false;
+	}
 }
 
 static void unload_modules(const char* key, void *data, void* arg)
 {
-    srsvm_module *mod = data;
+	srsvm_module *mod = data;
 
-    asm_mod_tag *tag = mod->tag;
+	asm_mod_tag *tag = mod->tag;
 
-    tag->is_loaded = false;
+	tag->is_loaded = false;
 }
 
 srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr entry_point, const srsvm_word word_alignment)
 { 
-    srsvm_program *out_program = srsvm_program_alloc();
+	srsvm_program *out_program = srsvm_program_alloc();
 
-    if(program != NULL && out_program != NULL){
+	if(program != NULL && out_program != NULL){
 
-        static char error_message_buf[4096] = { 0 };
+		static char error_message_buf[4096] = { 0 };
 
 #define ERR(msg) do { report_error(program, "<output>", 0, msg, program->io_config); goto error_cleanup; } while(0)
 #define ERR_fmt(fmt, ...) do { snprintf(error_message_buf, sizeof(error_message_buf), fmt, __VA_ARGS__); ERR(error_message_buf); } while(0)
@@ -1260,276 +1273,276 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 #define WARN(msg) do { report_error(program, "<output>", 0, msg, program->io_config); } while(0)
 #define WARN_fmt(fmt, ...) do { snprintf(error_message_buf, sizeof(error_message_buf), fmt, __VA_ARGS__); WARN(error_message_buf); } while(0)
 
-        srsvm_program_metadata *metadata = srsvm_program_metadata_alloc();
-        metadata->word_size = WORD_SIZE;
-        metadata->entry_point = entry_point;
-        out_program->metadata = metadata;
+		srsvm_program_metadata *metadata = srsvm_program_metadata_alloc();
+		metadata->word_size = WORD_SIZE;
+		metadata->entry_point = entry_point;
+		out_program->metadata = metadata;
 
-        srsvm_assembly_register *module_register = malloc(sizeof(srsvm_assembly_register));
+		srsvm_assembly_register *module_register = malloc(sizeof(srsvm_assembly_register));
 
-        if(module_register == NULL){
-            ERR_fmt("failed to allocate built-in $$MOD register: %s", strerror(errno));
-        } else {
-            strncpy(module_register->name, "$$MOD", sizeof(module_register->name));
-            if(! srsvm_string_map_insert(program->reg_map, module_register->name, module_register)){
-                ERR_fmt("failed to map built-in $$MOD register: %s", strerror(errno));
-            }
-            program->num_registers = 1;
-        }
+		if(module_register == NULL){
+			ERR_fmt("failed to allocate built-in $$MOD register: %s", strerror(errno));
+		} else {
+			strncpy(module_register->name, "$$MOD", sizeof(module_register->name));
+			if(! srsvm_string_map_insert(program->reg_map, module_register->name, module_register)){
+				ERR_fmt("failed to map built-in $$MOD register: %s", strerror(errno));
+			}
+			program->num_registers = 1;
+		}
 
-        srsvm_register_specification *assembled_mod_reg = NULL;
+		srsvm_register_specification *assembled_mod_reg = NULL;
 
-        srsvm_assembly_line *line = NULL;
+		srsvm_assembly_line *line = NULL;
 
-        mod_cache_data state_data;
-        //state_data.next_slot = 0;
-        state_data.unload_opcode = program->builtin_MOD_UNLOAD;
-        state_data.line_ptr = &line;
+		mod_cache_data state_data;
+		//state_data.next_slot = 0;
+		state_data.unload_opcode = program->builtin_MOD_UNLOAD;
+		state_data.line_ptr = &line;
 
-        srsvm_lru_cache *mod_cache = srsvm_lru_cache_alloc(true, SRSVM_MODULE_MAX_COUNT / 4, module_lru_evict, &state_data);
+		srsvm_lru_cache *mod_cache = srsvm_lru_cache_alloc(true, SRSVM_MODULE_MAX_COUNT / 4, module_lru_evict, &state_data);
 
-        if(mod_cache == NULL){
-            ERR_fmt("failed to allocate LRU module cache: %s", strerror(errno));
-        }
+		if(mod_cache == NULL){
+			ERR_fmt("failed to allocate LRU module cache: %s", strerror(errno));
+		}
 
-        program->assembled_size = 0;
+		program->assembled_size = 0;
 
-        for(line = program->lines; line != NULL; line = line->next){
-            if(strlen(line->module_name) > 0){
-                char mod_name_literal[SRSVM_MODULE_MAX_NAME_LEN+2] = { 0 };
-                snprintf(mod_name_literal, sizeof(mod_name_literal), "\"%s\"", line->module_name);
+		for(line = program->lines; line != NULL; line = line->next){
+			if(strlen(line->module_name) > 0){
+				char mod_name_literal[SRSVM_MODULE_MAX_NAME_LEN+2] = { 0 };
+				snprintf(mod_name_literal, sizeof(mod_name_literal), "\"%s\"", line->module_name);
 
-                srsvm_assembly_constant *const_val;
+				srsvm_assembly_constant *const_val;
 
-                if(srsvm_string_map_contains(program->const_map, mod_name_literal)){
-                    const_val = srsvm_string_map_lookup(program->const_map, mod_name_literal);
-                    const_val->ref_count++;
-                } else {
-                    const_val = malloc(sizeof(srsvm_assembly_constant));
+				if(srsvm_string_map_contains(program->const_map, mod_name_literal)){
+					const_val = srsvm_string_map_lookup(program->const_map, mod_name_literal);
+					const_val->ref_count++;
+				} else {
+					const_val = malloc(sizeof(srsvm_assembly_constant));
 
-                    if(const_val == NULL){
-                        ERR_fmt("failed to allocate constant value: %s", strerror(errno));
-                    }
+					if(const_val == NULL){
+						ERR_fmt("failed to allocate constant value: %s", strerror(errno));
+					}
 
-                    const_val->value = srsvm_const_alloc(SRSVM_TYPE_STR);
-                    const_val->value->str = srsvm_strdup(line->module_name);
-                    const_val->value->str_len = strlen(line->module_name);
-                    const_val->ref_count = 1;
+					const_val->value = srsvm_const_alloc(SRSVM_TYPE_STR);
+					const_val->value->str = srsvm_strdup(line->module_name);
+					const_val->value->str_len = strlen(line->module_name);
+					const_val->ref_count = 1;
 
-                    if(! srsvm_string_map_insert(program->const_map, mod_name_literal, const_val)){
-                        ERR_fmt("failed to map constant value: '%s'", mod_name_literal);
-                    }
-                }
-            }
-        }
+					if(! srsvm_string_map_insert(program->const_map, mod_name_literal, const_val)){
+						ERR_fmt("failed to map constant value: '%s'", mod_name_literal);
+					}
+				}
+			}
+		}
 
-        if(! flatten_registers(program)){
-            ERR("failed to flatten program registers");
-        } else {
-            srsvm_register_specification *reg = out_program->registers;
-            for(int r = 1; r < out_program->num_registers; r++){
-                reg = reg->next;
-            }
+		if(! flatten_registers(program)){
+			ERR("failed to flatten program registers");
+		} else {
+			srsvm_register_specification *reg = out_program->registers;
+			for(int r = 1; r < out_program->num_registers; r++){
+				reg = reg->next;
+			}
 
-            srsvm_assembly_register *asm_reg;
-            for(int r = 0; r < program->num_registers; r++){
-                asm_reg = program->registers[r];
+			srsvm_assembly_register *asm_reg;
+			for(int r = 0; r < program->num_registers; r++){
+				asm_reg = program->registers[r];
 
-                srsvm_register_specification *new_reg = srsvm_program_register_alloc();
-                dbg_printf("made reg " PRINT_WORD_HEX ":%s", PRINTF_WORD_PARAM(asm_reg->slot_num), asm_reg->name);
-                strncpy(new_reg->name, asm_reg->name, sizeof(new_reg->name));
-                new_reg->name_len = strlen(asm_reg->name);
-                new_reg->index = asm_reg->slot_num;
-                new_reg->next = NULL;
+				srsvm_register_specification *new_reg = srsvm_program_register_alloc();
+				dbg_printf("made reg " PRINT_WORD_HEX ":%s", PRINTF_WORD_PARAM(asm_reg->slot_num), asm_reg->name);
+				strncpy(new_reg->name, asm_reg->name, sizeof(new_reg->name));
+				new_reg->name_len = strlen(asm_reg->name);
+				new_reg->index = asm_reg->slot_num;
+				new_reg->next = NULL;
 
-                if(asm_reg == module_register){
-                    assembled_mod_reg = new_reg;
-                }
+				if(asm_reg == module_register){
+					assembled_mod_reg = new_reg;
+				}
 
-                if(reg == NULL){
-                    out_program->registers = new_reg;
-                } else {
-                    reg->next = new_reg;
-                }
+				if(reg == NULL){
+					out_program->registers = new_reg;
+				} else {
+					reg->next = new_reg;
+				}
 
-                reg = new_reg;
+				reg = new_reg;
 
-                out_program->num_registers++;
-            }
-        }
+				out_program->num_registers++;
+			}
+		}
 
-        if(! flatten_constants(program)){
-            ERR("failed to flatten program constants");
-        } else {
-            srsvm_constant_specification *c_out =  out_program->constants;
+		if(! flatten_constants(program)){
+			ERR("failed to flatten program constants");
+		} else {
+			srsvm_constant_specification *c_out =  out_program->constants;
 
-            for(int c = 1; c < out_program->num_constants; c++){
-                c_out = c_out->next;
-            }
+			for(int c = 1; c < out_program->num_constants; c++){
+				c_out = c_out->next;
+			}
 
-            srsvm_assembly_constant *asm_const;
-            for(int c = 0; c < program->num_constants; c++){
-                asm_const = program->constants[c];
+			srsvm_assembly_constant *asm_const;
+			for(int c = 0; c < program->num_constants; c++){
+				asm_const = program->constants[c];
 
-                srsvm_constant_specification *new_const = srsvm_program_const_alloc();
-                new_const->const_val = *asm_const->value;
-                new_const->const_slot = asm_const->slot_num;
+				srsvm_constant_specification *new_const = srsvm_program_const_alloc();
+				new_const->const_val = *asm_const->value;
+				new_const->const_slot = asm_const->slot_num;
 
-                new_const->next = NULL;
+				new_const->next = NULL;
 
-                if(c_out == NULL){
-                    out_program->constants = new_const;
-                } else {
-                    c_out->next = new_const;
-                }
+				if(c_out == NULL){
+					out_program->constants = new_const;
+				} else {
+					c_out->next = new_const;
+				}
 
-                c_out = new_const;
+				c_out = new_const;
 
-                out_program->num_constants++;
-            }
-        }
+				out_program->num_constants++;
+			}
+		}
 
 #if defined(SRSVM_SUPPORT_COMPRESSION)
-        out_program->constants_compressed = true;
+		out_program->constants_compressed = true;
 #else
-        out_program->constants_compressed = false;
+		out_program->constants_compressed = false;
 #endif
 
-        for(line = program->lines; line != NULL; line = line->next){
-            line->assembled_ptr = entry_point + program->assembled_size;
+		for(line = program->lines; line != NULL; line = line->next){
+			line->assembled_ptr = entry_point + program->assembled_size;
 
-            srsvm_opcode *line_op = line->opcode;
+			srsvm_opcode *line_op = line->opcode;
 
-            if(line_op == program->builtin_MOD_UNLOAD_ALL){
-                srsvm_string_map_walk(mod_cache->map, unload_modules, NULL);
-                srsvm_lru_cache_clear(mod_cache, false);
-                //state_data.next_slot = 0;
-            }
+			if(line_op == program->builtin_MOD_UNLOAD_ALL){
+				srsvm_string_map_walk(mod_cache->map, unload_modules, NULL);
+				srsvm_lru_cache_clear(mod_cache, false);
+				//state_data.next_slot = 0;
+			}
 
-            if(strlen(line->module_name) > 0){
-                char mod_name_literal[SRSVM_MODULE_MAX_NAME_LEN+2] = { 0 };
-                snprintf(mod_name_literal, sizeof(mod_name_literal), "\"%s\"", line->module_name);
+			if(strlen(line->module_name) > 0){
+				char mod_name_literal[SRSVM_MODULE_MAX_NAME_LEN+2] = { 0 };
+				snprintf(mod_name_literal, sizeof(mod_name_literal), "\"%s\"", line->module_name);
 
-                srsvm_assembly_constant *mod_name_const = srsvm_string_map_lookup(program->const_map, mod_name_literal);
+				srsvm_assembly_constant *mod_name_const = srsvm_string_map_lookup(program->const_map, mod_name_literal);
 
-                srsvm_module *mod = srsvm_lru_cache_lookup(mod_cache, line->module_name);
-                asm_mod_tag *tag;
+				srsvm_module *mod = srsvm_lru_cache_lookup(mod_cache, line->module_name);
+				asm_mod_tag *tag;
 
-                if(mod == NULL){
-                    mod = srsvm_string_map_lookup(program->mod_map, line->module_name);
+				if(mod == NULL){
+					mod = srsvm_string_map_lookup(program->mod_map, line->module_name);
 
-                    if(mod == NULL){
-                        ERR_fmt("failed to locate module '%s'", line->module_name);
-                    } else {
-                        tag = mod->tag;
+					if(mod == NULL){
+						ERR_fmt("failed to locate module '%s'", line->module_name);
+					} else {
+						tag = mod->tag;
 
-                        if(tag->is_loaded){
-                            WARN_fmt("cache miss for loaded module '%s'", line->module_name);
-                        } else if(! srsvm_lru_cache_insert(mod_cache, mod->name, mod)){
-                            ERR_fmt("cache insert failed for module '%s'", line->module_name);
-                        } else {
-                            //tag->slot_num = state_data.next_slot++;
-			    tag->mod_name = (const char*) line->module_name;
-                            //tag->is_loaded = true;
-                        }
-                    }
-                } else {
-                    tag = mod->tag;
-                }
+						if(tag->is_loaded){
+							WARN_fmt("cache miss for loaded module '%s'", line->module_name);
+						} else if(! srsvm_lru_cache_insert(mod_cache, mod->name, mod)){
+							ERR_fmt("cache insert failed for module '%s'", line->module_name);
+						} else {
+							//tag->slot_num = state_data.next_slot++;
+							tag->mod_name = (const char*) line->module_name;
+							//tag->is_loaded = true;
+						}
+					}
+				} else {
+					tag = mod->tag;
+				}
 
-                if(! tag->is_loaded){
-                    if(line->pre_count + 2 > SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
-                        ERR_fmt("not enough space to insert module load '%s'", line->module_name);
-                    } else {
-                        /*line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
-                        line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
-                        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
-                        line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
-                        line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_CONSTANT;
-                        line->pre[line->pre_count].argc = 2;
+				if(! tag->is_loaded){
+					if(line->pre_count + 2 > SRSVM_ASM_MAX_PREFIX_SUFFIX_INSTRUCTIONS){
+						ERR_fmt("not enough space to insert module load '%s'", line->module_name);
+					} else {
+						/*line->pre[line->pre_count].opcode = program->builtin_LOAD_CONST->code;
+						  line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
+						  line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
+						  line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
+						  line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_CONSTANT;
+						  line->pre[line->pre_count].argc = 2;
 
-                        line->pre_count++;*/
+						  line->pre_count++;*/
 
-                        line->pre[line->pre_count].opcode = program->builtin_MOD_LOAD->code;
-                        line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
-                        line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
-                        line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
-                        line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_CONSTANT;
-                        line->pre[line->pre_count].argc = 2;
+						line->pre[line->pre_count].opcode = program->builtin_MOD_LOAD->code;
+						line->pre[line->pre_count].argv[0].value = assembled_mod_reg->index;
+						line->pre[line->pre_count].argv[0].type = SRSVM_ARG_TYPE_REGISTER;
+						line->pre[line->pre_count].argv[1].value = mod_name_const->slot_num;
+						line->pre[line->pre_count].argv[1].type = SRSVM_ARG_TYPE_CONSTANT;
+						line->pre[line->pre_count].argc = 2;
 
-                        line->pre_count++;
+						line->pre_count++;
 
-			mod_name_const->ref_count++;
+						mod_name_const->ref_count++;
 
-                        tag->is_loaded = true;
-                    }
-                }
+						tag->is_loaded = true;
+					}
+				}
 
-                line->assembled_instruction.opcode = program->builtin_MOD_OP->code;
-                line->assembled_instruction.argv[0].value = mod_name_const->slot_num;
-                line->assembled_instruction.argv[0].type = SRSVM_ARG_TYPE_CONSTANT;
-                line->assembled_instruction.argv[1].value = line_op->code;
-                line->assembled_instruction.argv[1].type = SRSVM_ARG_TYPE_WORD;
-			
-		mod_name_const->ref_count++;
-                
-		dbg_printf("mod op code = " PRINT_WORD_HEX, PRINTF_WORD_PARAM(line_op->code));
-            } else {
-                line->assembled_instruction.opcode = line_op->code;
-            }
+				line->assembled_instruction.opcode = program->builtin_MOD_OP->code;
+				line->assembled_instruction.argv[0].value = mod_name_const->slot_num;
+				line->assembled_instruction.argv[0].type = SRSVM_ARG_TYPE_CONSTANT;
+				line->assembled_instruction.argv[1].value = line_op->code;
+				line->assembled_instruction.argv[1].type = SRSVM_ARG_TYPE_WORD;
 
-            for(unsigned i = 0; i < line->num_register_refs; i++){
-                line->assembled_instruction.argv[line->register_references[i].arg_index].value = line->register_references[i].reg->slot_num;
-                line->assembled_instruction.argv[line->register_references[i].arg_index].type = SRSVM_ARG_TYPE_REGISTER;
-            }
+				mod_name_const->ref_count++;
 
-            for(unsigned i = 0; i < line->num_constant_refs; i++){
-                line->assembled_instruction.argv[line->constant_references[i].arg_index].value = line->constant_references[i].c->slot_num;
-                line->assembled_instruction.argv[line->constant_references[i].arg_index].type = SRSVM_ARG_TYPE_CONSTANT;
-            }
-            
-            //line->assembled_instruction.opcode = line_op->code;
-            line->assembled_instruction.argc = line->argc;
+				dbg_printf("mod op code = " PRINT_WORD_HEX, PRINTF_WORD_PARAM(line_op->code));
+			} else {
+				line->assembled_instruction.opcode = line_op->code;
+			}
 
-            line->assembled_size = 0;
+			for(unsigned i = 0; i < line->num_register_refs; i++){
+				line->assembled_instruction.argv[line->register_references[i].arg_index].value = line->register_references[i].reg->slot_num;
+				line->assembled_instruction.argv[line->register_references[i].arg_index].type = SRSVM_ARG_TYPE_REGISTER;
+			}
 
-            for(int i = 0; i < line->pre_count; i++){
-                size_t instruction_size = (sizeof(srsvm_word) + line->pre[i].argc * sizeof(srsvm_arg));
+			for(unsigned i = 0; i < line->num_constant_refs; i++){
+				line->assembled_instruction.argv[line->constant_references[i].arg_index].value = line->constant_references[i].c->slot_num;
+				line->assembled_instruction.argv[line->constant_references[i].arg_index].type = SRSVM_ARG_TYPE_CONSTANT;
+			}
 
-                if(word_alignment > 0){
-                    instruction_size += ((word_alignment - (instruction_size % word_alignment)) % word_alignment) * sizeof(srsvm_word);
-                }
+			//line->assembled_instruction.opcode = line_op->code;
+			line->assembled_instruction.argc = line->argc;
 
-                line->assembled_size += instruction_size;
-            }
+			line->assembled_size = 0;
 
-            line->assembled_size += (sizeof(srsvm_word) + line->argc * sizeof(srsvm_arg));
+			for(int i = 0; i < line->pre_count; i++){
+				size_t instruction_size = (sizeof(srsvm_word) + line->pre[i].argc * sizeof(srsvm_arg));
 
-            if(word_alignment > 0){
-                line->assembled_size += ((word_alignment - (((1 + line->argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
-            }
+				if(word_alignment > 0){
+					instruction_size += ((word_alignment - (instruction_size % word_alignment)) % word_alignment) * sizeof(srsvm_word);
+				}
 
-            for(int i = 0; i < line->post_count; i++){
-                size_t instruction_size = (sizeof(srsvm_word) + line->post[i].argc * sizeof(srsvm_arg));
+				line->assembled_size += instruction_size;
+			}
 
-                if(word_alignment > 0){
-                    instruction_size += ((word_alignment - (instruction_size % word_alignment)) % word_alignment) * sizeof(srsvm_word);
-                }
+			line->assembled_size += (sizeof(srsvm_word) + line->argc * sizeof(srsvm_arg));
 
-                line->assembled_size += instruction_size;
-            }
+			if(word_alignment > 0){
+				line->assembled_size += ((word_alignment - (((1 + line->argc) * sizeof(srsvm_word)) % word_alignment)) % word_alignment) * sizeof(srsvm_word);
+			}
 
-            program->assembled_size += line->assembled_size;
-        }
+			for(int i = 0; i < line->post_count; i++){
+				size_t instruction_size = (sizeof(srsvm_word) + line->post[i].argc * sizeof(srsvm_arg));
 
-        for(line = program->lines; line != NULL; line = line->next){
-            if(strlen(line->jump_target) > 0){
-                srsvm_assembly_line *target_line = srsvm_string_map_lookup(program->label_map, line->jump_target);
+				if(word_alignment > 0){
+					instruction_size += ((word_alignment - (instruction_size % word_alignment)) % word_alignment) * sizeof(srsvm_word);
+				}
 
-                if(target_line == NULL){
-                    ERR_fmt("failed to locate label '%s'", line->jump_target);
-                } else {
-                    long offset = compute_byte_offset(line, target_line);
+				line->assembled_size += instruction_size;
+			}
+
+			program->assembled_size += line->assembled_size;
+		}
+
+		for(line = program->lines; line != NULL; line = line->next){
+			if(strlen(line->jump_target) > 0){
+				srsvm_assembly_line *target_line = srsvm_string_map_lookup(program->label_map, line->jump_target);
+
+				if(target_line == NULL){
+					ERR_fmt("failed to locate label '%s'", line->jump_target);
+				} else {
+					long offset = compute_byte_offset(line, target_line);
 
                     if(offset < 0){
                         if(-offset > SRSVM_MAX_PTR){

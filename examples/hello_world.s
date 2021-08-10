@@ -1,3 +1,3 @@
-LOAD_CONST $MSG "Hello, world!"
-PUTS $MSG
+PUTS "Hello, world!"
+
 HALT

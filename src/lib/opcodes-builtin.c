@@ -43,6 +43,28 @@ void builtin_HALT_ERR(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc,
 
 }
 
+void builtin_ERR_FAULT_ENABLE(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+{
+	srsvm_register *reg = register_lookup(vm, thread, &argv[0]);
+
+	if(reg != NULL){
+		reg->fault_on_error = true;
+	} else {
+		// TODO: fault
+	}
+}
+
+void builtin_ERR_FAULT_DISABLE(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+{
+	srsvm_register *reg = register_lookup(vm, thread, &argv[0]);
+
+	if(reg != NULL){
+		reg->fault_on_error = false;
+	} else {
+		// TODO: fault
+	}
+}
+
 void builtin_ALLOC(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
 {
 	if(require_arg_type(vm, thread, &argv[0], SRSVM_ARG_TYPE_REGISTER)){
@@ -549,10 +571,27 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 
 	void builtin_PUTS(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
 	{
-		srsvm_register *src_str_reg = register_lookup(vm, thread, &argv[0]);
+		if(require_arg_type(vm, thread, &argv[0], SRSVM_ARG_TYPE_REGISTER | SRSVM_ARG_TYPE_CONSTANT)){
 
-		if(src_str_reg != NULL){
-			puts(src_str_reg->value.str);
+			const char* str = NULL;
+
+			if(argv[0].type == SRSVM_ARG_TYPE_REGISTER){
+				srsvm_register *src_str_reg = register_lookup(vm, thread, &argv[0]);
+ 
+				str = src_str_reg->value.str;
+			} else if(argv[0].type == SRSVM_ARG_TYPE_CONSTANT){
+				srsvm_word const_slot = argv[0].value;
+
+				if(const_slot < SRSVM_CONST_MAX_COUNT && vm->constants[const_slot] != NULL && vm->constants[const_slot]->type == SRSVM_TYPE_STR){
+					str = vm->constants[const_slot]->str;
+				}
+				
+			}
+
+
+		if(str != NULL){
+			puts(str);
+		}
 		}
 	}
 
@@ -596,6 +635,9 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 
 	void builtin_WORD_EQ(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
 	{
+		if(require_arg_type(vm, thread, &argv[0], SRSVM_ARG_TYPE_CONSTANT | SRSVM_ARG_TYPE_REGISTER) && 
+				require_arg_type(vm, thread, &argv[1], SRSVM_ARG_TYPE_CONSTANT | SRSVM_ARG_TYPE_REGISTER)){
+
 		srsvm_register *dest_reg = register_lookup(vm, thread, &argv[0]);
 
 		srsvm_word a = 0;
@@ -607,6 +649,7 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 			if(dest_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
 				load_bit(dest_reg, a == b, 0);
 			}
+		}
 		}
 	}
 

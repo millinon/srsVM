@@ -18,10 +18,12 @@ srsvm_register *srsvm_register_alloc(const char* name, const srsvm_word index)
         reg->error_flag = false;
         reg->read_only = false;
         reg->locked = false;
+	reg->fault_on_error = false;
 
         memset(&reg->value, 0, sizeof(srsvm_register_contents));
         reg->value.str = NULL;
         reg->value.str_len = 0;
+
     } else {
         dbg_printf("malloc failed: %s", strerror(errno));
     }

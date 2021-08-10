@@ -15,7 +15,7 @@ release: progs
 
 LIBS:=-pthread -ldl -lz
 
-progs: srsvm_$(WORD_SIZE) srsvm_as_$(WORD_SIZE)
+progs: srsvm_$(WORD_SIZE) srsvm_as_$(WORD_SIZE) srsvm_run_$(WORD_SIZE)
 
 obj/$(WORD_SIZE)/%.o: ../lib/%.c
 	mkdir -p $(dir $@)
@@ -55,12 +55,28 @@ srsvm_as_$(WORD_SIZE): srsvm_as.c \
 	obj/$(WORD_SIZE)/impl/linux.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
+srsvm_run_$(WORD_SIZE): srsvm_run.c \
+	obj/$(WORD_SIZE)/asm.o \
+	obj/$(WORD_SIZE)/lru.o \
+	obj/$(WORD_SIZE)/opcodes-builtin.o \
+	obj/$(WORD_SIZE)/vm.o \
+	obj/$(WORD_SIZE)/module.o \
+	obj/$(WORD_SIZE)/map.o \
+	obj/$(WORD_SIZE)/mmu.o \
+	obj/$(WORD_SIZE)/opcode.o \
+	obj/$(WORD_SIZE)/register.o \
+	obj/$(WORD_SIZE)/constant.o \
+	obj/$(WORD_SIZE)/program.o \
+	obj/$(WORD_SIZE)/thread.o \
+	obj/$(WORD_SIZE)/impl/linux.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+
 clean-obj:
 	rm -rf obj
 
 clean: clean-obj
 	for arch in 16 32 64 128; do \
-		rm -f srsvm_$$arch srsvm_as_$$arch ; \
+		rm -f srsvm_$$arch srsvm_as_$$arch srsvm_run_$$arch; \
 	done
 
 install: 
@@ -68,4 +84,5 @@ install:
 	for arch in 16 32 64 128; do \
 		install -m 0755 srsvm_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
 		install -m 0755 srsvm_as_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
+		install -m 0755 srsvm_run_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
 		done

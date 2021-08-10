@@ -90,6 +90,8 @@ typedef struct
     bool error_flag;
     char error_str[1024];
 
+    bool fault_on_error;
+
     srsvm_register_contents value;
 } srsvm_register;
 

@@ -10,6 +10,11 @@ REGISTER_OPCODE(code++, NOP, 0, 0);
 REGISTER_OPCODE(code++, HALT, 0, 1);
 REGISTER_OPCODE(code++, HALT_ERR, 1, 2);
 
+code += 2;
+
+REGISTER_OPCODE(code++, ERR_FAULT_ENABLE, 1, 1);
+REGISTER_OPCODE(code++, ERR_FAULT_DISABLE, 1, 1);
+
 code += 5;
 
 REGISTER_OPCODE(code++, CJMP_BACK, 1, 1); 

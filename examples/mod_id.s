@@ -1,3 +1,5 @@
+ERR_FAULT_ENABLE $MOD_ID
+
 LOAD_CONST $A 0xcc79%u16
 LOAD_CONST $B 0x1234%u16
 
@@ -26,5 +28,8 @@ CONV_NOT_LOADED:
 PUTS "conversion module not loaded?"
 
 END:
+
+MOD_ID $MOD_ID "does_not_exist"
+PUT $MOD_ID
 
 HALT

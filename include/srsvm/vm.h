@@ -12,6 +12,8 @@
 #include "srsvm/register.h"
 #include "srsvm/thread.h"
 
+typedef void(*srsvm_vm_fault_handler)(srsvm_vm *vm);
+
 struct srsvm_vm
 {
     srsvm_opcode_map *opcode_map;
@@ -33,8 +35,13 @@ struct srsvm_vm
 
     srsvm_thread *main_thread;
 
+    bool has_fault;
+    char fault_str[1024];
+
     const char** argv;
     int argc;
+
+    srsvm_vm_fault_handler fault_handler;
 };
 
 srsvm_vm *srsvm_vm_alloc(void);
@@ -89,3 +96,5 @@ srsvm_constant_value *srsvm_vm_alloc_const_str(srsvm_vm *vm, const srsvm_word in
 bool srsvm_vm_load_const(srsvm_vm *vm, srsvm_register *dest_reg, const srsvm_word index, const srsvm_word offset);
 
 void srsvm_vm_set_argv(srsvm_vm *vm, const char** argv, const int argc);
+
+void srsvm_vm_set_fault_handler(srsvm_vm *vm, srsvm_vm_fault_handler fault_handler);

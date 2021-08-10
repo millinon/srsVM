@@ -14,7 +14,7 @@ release: progs
 
 LIBS:=-pthread -ldl -lz
 
-progs: srsvm srsvm_as
+progs: srsvm srsvm_as srsvm_run
 
 obj/%.o: ../lib/%.c
 	mkdir -p $(dir $@)
@@ -33,13 +33,18 @@ srsvm_as: srsvm_as_wrap.c \
 	obj/impl/linux.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
+srsvm_run: srsvm_run_wrap.c \
+	obj/impl/linux.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+
 clean-obj:
 	rm -rf obj
 
 clean: clean-obj
-	rm -f srsvm srsvm_as
+	rm -f srsvm srsvm_as srsvm_run
 
 install: release
 	install -d "$(DESTDIR)$(PREFIX)/bin"
 	install -m 0755 srsvm "$(DESTDIR)$(PREFIX)/bin/"
 	install -m 0755 srsvm_as "$(DESTDIR)$(PREFIX)/bin/"
+	install -m 0755 srsvm_run "$(DESTDIR)$(PREFIX)/bin/"
