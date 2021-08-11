@@ -6,5 +6,6 @@ math.MUL_U8 $RESULT $A $B           ; multiply the values of $A and $B, storing 
 conversion.U8_TO_STR $MSG $RESULT   ; convert the contents of the register $RESULT to a string, storing the result into the register $MSG
 
 PUTS $MSG                           ; print the contents of the $MSG register to stdout
+PUTS "\n"                           ; print a newline
 
 HALT                                ; end execution

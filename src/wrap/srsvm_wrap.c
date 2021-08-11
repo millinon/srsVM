@@ -48,104 +48,106 @@ char* search_prog(const char* prog_name)
 
 #if defined(__unix__)
 #if defined(SRSVM_LIBEXEC_DIR)
-    if(srsvm_directory_exists(SRSVM_LIBEXEC_DIR))
-    {
-        prog_path = srsvm_path_combine(SRSVM_LIBEXEC_DIR, prog_name);
+	if(prog_path == NULL){
+		if(srsvm_directory_exists(SRSVM_LIBEXEC_DIR))
+		{
+			prog_path = srsvm_path_combine(SRSVM_LIBEXEC_DIR, prog_name);
 
-        if(prog_path != NULL){
-            if(! srsvm_file_exists(prog_name)){
-                free(prog_path);
-                prog_path = NULL;
-            }
-        }
-    }
+			if(prog_path != NULL){
+				if(! srsvm_file_exists(prog_path)){
+					free(prog_path);
+					prog_path = NULL;
+				}
+			}
+		}
+	}
 #endif
 #if defined(SRSVM_USER_HOME_LIBEXEC_DIR)
-    if(prog_path == NULL){
-        const char* home_dir = getenv("HOME");
+	if(prog_path == NULL){
+		const char* home_dir = getenv("HOME");
 
-        if(home_dir == NULL){
-            size_t pw_size_max = sysconf(_SC_GETPW_R_SIZE_MAX);
-            if(pw_size_max == -1){
-                pw_size_max = 0x4000;
-            }
+		if(home_dir == NULL){
+			size_t pw_size_max = sysconf(_SC_GETPW_R_SIZE_MAX);
+			if(pw_size_max == -1){
+				pw_size_max = 0x4000;
+			}
 
-            struct passwd pwd, *r;
-            void *buf = malloc(pw_size_max);
-            if(buf != NULL){
-                getpwuid_r(geteuid(), &pwd, buf, pw_size_max, &r);
+			struct passwd pwd, *r;
+			void *buf = malloc(pw_size_max);
+			if(buf != NULL){
+				getpwuid_r(geteuid(), &pwd, buf, pw_size_max, &r);
 
-                if(r != NULL){
-                    home_dir = r->pw_dir;
+				if(r != NULL){
+					home_dir = r->pw_dir;
 
-                    subdir = srsvm_path_combine(home_dir, SRSVM_USER_HOME_LIBEXEC_DIR);
+					subdir = srsvm_path_combine(home_dir, SRSVM_USER_HOME_LIBEXEC_DIR);
 
-                    if(subdir != NULL){
-                        prog_path = srsvm_path_combine(subdir, prog_name);
+					if(subdir != NULL){
+						prog_path = srsvm_path_combine(subdir, prog_name);
 
-                        free(subdir);
-                        if(prog_path != NULL){
-                            if(!srsvm_file_exists(prog_path)){
-                                free(prog_path);
-                                prog_path = NULL;
-                            }
-                        }
-                    }
-                }
+						free(subdir);
+						if(prog_path != NULL){
+							if(!srsvm_file_exists(prog_path)){
+								free(prog_path);
+								prog_path = NULL;
+							}
+						}
+					}
+				}
 
-                free(buf);
-            }
-        } else {
-            subdir = srsvm_path_combine(home_dir, SRSVM_USER_HOME_LIBEXEC_DIR);
+				free(buf);
+			}
+		} else {
+			subdir = srsvm_path_combine(home_dir, SRSVM_USER_HOME_LIBEXEC_DIR);
 
-            if(subdir != NULL){
-                prog_path = srsvm_path_combine(subdir, prog_name);
+			if(subdir != NULL){
+				prog_path = srsvm_path_combine(subdir, prog_name);
 
-                free(subdir);
-                if(prog_path != NULL){
-                    if(!srsvm_file_exists(prog_path)){
-                        free(prog_path);
-                        prog_path = NULL;
-                    }
-                }
-            }
-        }
-    }
+				free(subdir);
+				if(prog_path != NULL){
+					if(!srsvm_file_exists(prog_path)){
+						free(prog_path);
+						prog_path = NULL;
+					}
+				}
+			}
+		}
+	}
 #endif
 #endif
-    return prog_path;
+	return prog_path;
 }
 
 void run_arch(int argc, char *argv[], uint8_t word_size)
 {
-    const char* prog_name = NULL;
+	const char* prog_name = NULL;
 
-    switch(word_size){
-        case 16:
-            prog_name = "srsvm_16";
-            break;
+	switch(word_size){
+		case 16:
+			prog_name = "srsvm_16";
+			break;
 
-        case 32:
-            prog_name = "srsvm_32";
-            break;
+		case 32:
+			prog_name = "srsvm_32";
+			break;
 
-        case 64:
-            prog_name = "srsvm_64";
-            break;
+		case 64:
+			prog_name = "srsvm_64";
+			break;
 
-        case 128:
-            prog_name = "srsvm_128";
-            break;
-    }
+		case 128:
+			prog_name = "srsvm_128";
+			break;
+	}
 
-    argv[0] = strdup(prog_name);
+	argv[0] = strdup(prog_name);
 
-    char* prog_path = search_prog(prog_name);
+	char* prog_path = search_prog(prog_name);
 
-    if(prog_path == NULL){
-        write_error("unable to locate arch-specific loader");
-        exit(1);
-    }
+	if(prog_path == NULL){
+		write_error("unable to locate arch-specific loader");
+		exit(1);
+	}
 
     if(execvp(prog_path, argv) == -1){
         write_error("execvp failed");

@@ -34,6 +34,8 @@ void free_node(srsvm_opcode_map_node *node)
             free_node(node->code_rchild);
         }
 
+	free(node->opcode);
+
         free(node);
     }
 }

@@ -1,3 +1,3 @@
-PUTS "Hello, world!"
+PUTS "Hello, world!\n"
 
 HALT

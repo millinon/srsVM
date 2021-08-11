@@ -45,6 +45,6 @@ clean: clean-obj
 
 install: release
 	install -d "$(DESTDIR)$(PREFIX)/bin"
-	install -m 0755 srsvm "$(DESTDIR)$(PREFIX)/bin/"
-	install -m 0755 srsvm_as "$(DESTDIR)$(PREFIX)/bin/"
-	install -m 0755 srsvm_run "$(DESTDIR)$(PREFIX)/bin/"
+	install -s -m 0755 srsvm "$(DESTDIR)$(PREFIX)/bin/"
+	install -s -m 0755 srsvm_as "$(DESTDIR)$(PREFIX)/bin/"
+	install -s -m 0755 srsvm_run "$(DESTDIR)$(PREFIX)/bin/"

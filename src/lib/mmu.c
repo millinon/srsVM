@@ -477,7 +477,7 @@ static srsvm_memory_segment* srsvm_mmu_alloc(srsvm_memory_segment *parent_segmen
 
         if(segment == NULL){
             dbg_printf("malloc failed: %s", strerror(errno));
-        }
+        } else memset(segment, 0, sizeof(srsvm_memory_segment));
     }
 
     if(segment != NULL){
@@ -621,15 +621,38 @@ bool free_tree(srsvm_memory_segment *segment)
     }
 }
 
+void srsvm_mmu_set_all_free(srsvm_memory_segment *segment)
+{
+	if(segment != NULL){
+		segment->free_flag = true;
+
+		for(int i = 0; i < WORD_SIZE; i++){
+			if(segment->children[i] != NULL){
+				srsvm_mmu_set_all_free(segment->children[i]);
+			}
+		}
+	}
+}
+
 void srsvm_mmu_free(srsvm_memory_segment *segment)
 {
     segment->free_flag = true;
 
-    lock_all(segment);
+    if(segment->parent != NULL){
+   	//lock_all(segment->parent);
+	
+	for(int i = 0; i < WORD_SIZE; i++){
+	    if(segment->parent->children[i] != NULL){
+		if(segment->parent->children[i] == segment){
+			segment->parent->children[i] = NULL;
+		}
+	    } else break;
+	}
+    
+	//release_all(segment->parent);
+    }
 
     free_tree(segment);
-
-    release_all(segment);
 }
 
 void srsvm_mmu_free_force(srsvm_memory_segment *segment)
@@ -640,7 +663,7 @@ void srsvm_mmu_free_force(srsvm_memory_segment *segment)
         } else break;
     }
 
-    srsvm_lock_release(&segment->lock);
+    //srsvm_lock_release(&segment->lock);
     srsvm_lock_destroy(&segment->lock);
 
     free(segment);

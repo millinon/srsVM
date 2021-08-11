@@ -44,4 +44,4 @@ clean: clean-obj
 
 install: release
 	install -d "$(DESTDIR)$(PREFIX)/lib/srsvm/multilib"
-	install -m 0755 ../output/$(MOD_NAME).svmmod "$(DESTDIR)$(PREFIX)/lib/srsvm/multilib/"
+	install -s -m 0755 ../output/$(MOD_NAME).svmmod "$(DESTDIR)$(PREFIX)/lib/srsvm/multilib/"

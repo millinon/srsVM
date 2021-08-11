@@ -590,7 +590,7 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 
 
 		if(str != NULL){
-			puts(str);
+            printf("%s", str);
 		}
 		}
 	}

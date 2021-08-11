@@ -124,9 +124,21 @@ error_cleanup:
     return NULL;
 }
 
+void free_const(const char* key, void* value, void* arg)
+{
+	srsvm_constant_value *c_val = value;
+
+	srsvm_const_free(c_val);
+}
+
 void srsvm_asm_program_free(srsvm_assembly_program *program)
 {
     if(program != NULL){
+
+	    if(program->lines != NULL){
+		srsvm_asm_line_free(program->lines);
+	    }
+	   
         if(program->constants != NULL){
             free(program->constants);
         }
@@ -134,7 +146,7 @@ void srsvm_asm_program_free(srsvm_assembly_program *program)
             free(program->registers);
         }
         if(program->label_map != NULL){
-            srsvm_string_map_free(program->label_map, true);
+            srsvm_string_map_free(program->label_map, false);
         }
         if(program->mod_map != NULL){
             srsvm_string_map_free(program->mod_map, false);
@@ -142,9 +154,17 @@ void srsvm_asm_program_free(srsvm_assembly_program *program)
         if(program->reg_map != NULL){
             srsvm_string_map_free(program->reg_map, true);
         }
+	
+	srsvm_string_map_walk(program->const_map, free_const, NULL);
+
         if(program->const_map != NULL){
             srsvm_string_map_free(program->const_map, false);
-        }
+       	}
+
+	if(program->opcode_map != NULL){
+	    srsvm_opcode_map_free(program->opcode_map);
+	}
+
         if(program->module_search_path != NULL){
             for(size_t i = 0; program->module_search_path[i] != NULL; i++){
                 free(program->module_search_path[i]);
@@ -1042,6 +1062,10 @@ search_again:
 	program->last_line = line;
 	line->next = NULL;
 	program->line_count++;
+	
+	if(writable_line != NULL){
+		free(writable_line);
+	}
 
 	return success;
 
@@ -1288,6 +1312,7 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 				ERR_fmt("failed to map built-in $$MOD register: %s", strerror(errno));
 			}
 			program->num_registers = 1;
+			module_register->ref_count = 1;
 		}
 
 		srsvm_register_specification *assembled_mod_reg = NULL;
@@ -1671,7 +1696,13 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 	program_memory->executable = true;
 	program_memory->locked = true;
 	out_program->num_lmem_segments = 1;
-    }
+    
+
+	if(mod_cache != NULL){
+		srsvm_string_map_walk(mod_cache->map, unload_modules, NULL);
+		srsvm_lru_cache_free(mod_cache, false);
+	}
+	}
 
     return out_program;
 

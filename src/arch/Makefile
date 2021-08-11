@@ -82,7 +82,7 @@ clean: clean-obj
 install: 
 	install -d "$(DESTDIR)$(PREFIX)/libexec/srsvm"
 	for arch in 16 32 64 128; do \
-		install -m 0755 srsvm_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
-		install -m 0755 srsvm_as_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
-		install -m 0755 srsvm_run_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
+		install -s -m 0755 srsvm_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
+		install -s -m 0755 srsvm_as_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
+		install -s -m 0755 srsvm_run_$$arch "$(DESTDIR)$(PREFIX)/libexec/srsvm/"; \
 		done

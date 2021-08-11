@@ -18,13 +18,20 @@ void mod_tree_free(const char* key, void* value, void* arg)
 void srsvm_vm_free(srsvm_vm *vm)
 {
     if(vm != NULL){
+
+	    if(vm->register_map != NULL){
+		srsvm_string_map_free(vm->register_map, false);
+	    }
         if(vm->opcode_map != NULL) srsvm_opcode_map_free(vm->opcode_map);
         if(vm->module_map != NULL)
         {
             srsvm_string_map_walk(vm->module_map, mod_tree_free, NULL);
             srsvm_string_map_free(vm->module_map, false);
         }
-        if(vm->mem_root != NULL) srsvm_mmu_free_force(vm->mem_root);
+        if(vm->mem_root != NULL){
+		srsvm_mmu_set_all_free(vm->mem_root);
+		srsvm_mmu_free(vm->mem_root);
+	}
 
         for(int i = 0; i < SRSVM_REGISTER_MAX_COUNT; i++){
             if(vm->registers[i] != NULL){
@@ -43,6 +50,12 @@ void srsvm_vm_free(srsvm_vm *vm)
                 //srsvm_module_free(vm->modules[i]);
             }
         }
+
+	for(int i = 0; i < SRSVM_CONST_MAX_COUNT; i++){
+	    if(vm->constants[i] != NULL){
+		srsvm_const_free(vm->constants[i]);
+	    }
+	}
 
         if(vm->module_search_path != NULL){
             for(size_t i = 0; vm->module_search_path[i] != NULL; i++){
@@ -244,6 +257,15 @@ bool srsvm_vm_join_thread(srsvm_vm *vm, const srsvm_word thread_id)
 
 void srsvm_vm_set_module_search_path(srsvm_vm *vm, const char* search_path)
 {
+	if(vm->module_search_path != NULL){
+            for(size_t i = 0; vm->module_search_path[i] != NULL; i++){
+                free(vm->module_search_path[i]);
+            }
+
+		free(vm->module_search_path);
+		vm->module_search_path = NULL;
+	}
+
 	if(search_path != NULL){
 		unsigned num_toks = 1;
 		size_t arg_len = strlen(search_path);

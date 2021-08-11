@@ -6,5 +6,6 @@ math.ADD_U128 $RESULT $A $B
 conversion.U128_TO_STR $RESULT $RESULT
 
 PUTS $RESULT
+PUTS "\n"
 
 HALT

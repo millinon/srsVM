@@ -15,3 +15,5 @@ srsvm_memory_segment* srsvm_mmu_alloc_virtual(srsvm_memory_segment *parent_segme
 
 void srsvm_mmu_free(srsvm_memory_segment *segment);
 void srsvm_mmu_free_force(srsvm_memory_segment *segment);
+
+void srsvm_mmu_set_all_free(srsvm_memory_segment *segment);

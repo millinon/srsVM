@@ -161,6 +161,7 @@ cleanup:
     if(main_thread != NULL) srsvm_thread_free(vm, main_thread);
     if(program != NULL) srsvm_program_free(program);
     if(vm != NULL) srsvm_vm_free(vm);
+    if(program_argv != NULL) free(program_argv);
 
     return exit_status;
 }

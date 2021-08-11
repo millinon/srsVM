@@ -26,7 +26,11 @@ bool srsvm_lock_initialize(srsvm_lock *lock)
 {
     bool success = false;
 
-    success = pthread_mutex_init(lock, NULL) == 0;
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+
+    success = pthread_mutex_init(lock, &attr) == 0;
 
     return success;
 }

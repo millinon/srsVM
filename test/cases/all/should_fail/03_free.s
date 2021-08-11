@@ -1,0 +1,2 @@
+FREE $MEM
+HALT

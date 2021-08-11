@@ -40,8 +40,8 @@ clean-obj:
 	rm -rf obj
 
 clean: clean-obj
-	rm -f ../output$(MOD_NAME).svmmod
+	rm -f ../output/$(MOD_NAME).svmmod
 
 install: release
 	install -d "$(DESTDIR)$(PREFIX)/lib/srsvm/multilib"
-	install -m 0755 ../output/$(MOD_NAME).svmmod "$(DESTDIR)$(PREFIX)/lib/srsvm/multilib/"
+	install -s -m 0755 ../output/$(MOD_NAME).svmmod "$(DESTDIR)$(PREFIX)/lib/srsvm/multilib/"

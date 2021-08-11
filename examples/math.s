@@ -6,5 +6,6 @@ math.ADD_U16 $RESULT $A $B
 conversion.U16_TO_STR_HEX $RESULT $RESULT
 
 PUTS $RESULT
+PUTS "\n"
 
 HALT

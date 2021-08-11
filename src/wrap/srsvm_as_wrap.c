@@ -57,7 +57,7 @@ char* search_prog(const char* prog_name)
         prog_path = srsvm_path_combine(SRSVM_LIBEXEC_DIR, prog_name);
 
         if(prog_path != NULL){
-            if(! srsvm_file_exists(prog_name)){
+            if(! srsvm_file_exists(prog_path)){
                 free(prog_path);
                 prog_path = NULL;
             }
