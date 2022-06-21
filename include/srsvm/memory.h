@@ -9,8 +9,8 @@
 
 #if WORD_SIZE == 16
 
-typedef uint16_t srsvm_ptr;
-typedef int16_t srsvm_ptr_offset;
+//typedef uint16_t srsvm_ptr;
+//typedef int16_t srsvm_ptr_offset;
 
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR UINT16_MAX
@@ -20,8 +20,8 @@ typedef int16_t srsvm_ptr_offset;
 
 #elif WORD_SIZE == 32
 
-typedef uint32_t srsvm_ptr;
-typedef int32_t srsvm_ptr_offset;
+//typedef uint32_t srsvm_ptr;
+//typedef int32_t srsvm_ptr_offset;
 
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR UINT32_MAX
@@ -31,8 +31,8 @@ typedef int32_t srsvm_ptr_offset;
 
 #elif WORD_SIZE == 64
 
-typedef uint64_t srsvm_ptr;
-typedef int64_t srsvm_ptr_offset;
+//typedef uint64_t srsvm_ptr;
+//typedef int64_t srsvm_ptr_offset;
 
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR UINT64_MAX
@@ -42,8 +42,8 @@ typedef int64_t srsvm_ptr_offset;
 
 #elif WORD_SIZE == 128
 
-typedef unsigned __int128 srsvm_ptr;
-typedef __int128 srsvm_ptr_offset;
+//typedef unsigned __int128 srsvm_ptr;
+//typedef __int128 srsvm_ptr_offset;
 
 #define SRSVM_NULL_PTR 0
 #define SRSVM_MAX_PTR ((\

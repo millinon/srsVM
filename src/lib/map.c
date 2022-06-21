@@ -110,7 +110,7 @@ bool srsvm_string_map_remove(srsvm_string_map *map, const char* key, const bool 
     srsvm_string_map_node *node = NULL;
 
     if(map != NULL && key != NULL){
-        if(srsvm_lock_acquire(&map->lock, 0)){
+        if(srsvm_lock_acquire(&map->lock)){
 
             srsvm_string_map_node *parent_node = map->root;
 
@@ -206,7 +206,7 @@ bool srsvm_string_map_insert(srsvm_string_map *map, const char* key, void* value
     srsvm_string_map_node *node = NULL;
 
     if(map != NULL && key != NULL && !srsvm_string_map_contains(map, key)){
-        if(! srsvm_lock_acquire(&map->lock, 0)){
+        if(! srsvm_lock_acquire(&map->lock)){
             return false;
         }
 
@@ -281,7 +281,7 @@ static srsvm_string_map_node* search(srsvm_string_map *map, const char* key)
     srsvm_string_map_node *node = NULL;
 
     if(map != NULL && key != NULL){
-        if(! srsvm_lock_acquire(&map->lock, 0)){
+        if(! srsvm_lock_acquire(&map->lock)){
             return NULL;
         }
 

@@ -102,6 +102,7 @@ srsvm_assembly_program *srsvm_asm_program_alloc(srsvm_assembler_message_report_f
     LOAD_BUILTIN(CJMP_BACK);
     LOAD_BUILTIN(CJMP_BACK_IF);
     LOAD_BUILTIN(CJMP_BACK_ERR);
+    LOAD_BUILTIN(THREAD_START);
 #undef xstr
 #undef str
 #undef LOAD_BUILTIN
@@ -1004,7 +1005,8 @@ search_again:
 				}
 
 				strncpy(line->jump_target, arg+1, sizeof(line->jump_target));
-
+                line->jump_target_arg_index = i;
+                    
 				break;
 
 			default:
@@ -1567,42 +1569,49 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 				if(target_line == NULL){
 					ERR_fmt("failed to locate label '%s'", line->jump_target);
 				} else {
-					long offset = compute_byte_offset(line, target_line);
 
-                    if(offset < 0){
-                        if(-offset > SRSVM_MAX_PTR){
-                            ERR_fmt("jump distance (%lu bytes) too large to fit in a WORD value", offset);
-                        } else {
-
-                            if(line->opcode == program->builtin_JMP){
-                                line->assembled_instruction.opcode = program->builtin_CJMP_BACK->code;
-                            } else if(line->opcode == program->builtin_JMP_IF){
-                                line->assembled_instruction.opcode = program->builtin_CJMP_BACK_IF->code;
-                            } else if(line->opcode == program->builtin_JMP_ERR){
-                                line->assembled_instruction.opcode = program->builtin_CJMP_BACK_ERR->code;
-                            } else {
-                                ERR_fmt("failed to map jump for target label '%s'", line->jump_target);
-                            }
-
-                            line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) -offset;
-                            line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
-                        }
+                    if(line->opcode == program->builtin_THREAD_START){
+                       line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) target_line->assembled_ptr; 
+                       line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
                     } else {
-                        if(offset > SRSVM_MAX_PTR){
-                            ERR_fmt("jump distance (%lu bytes) too large to fit in a WORD value", offset);
-                        } else {
-                            if(line->opcode == program->builtin_JMP){
-                                line->assembled_instruction.opcode = program->builtin_CJMP_FORWARD->code;
-                            } else if(line->opcode == program->builtin_JMP_IF){
-                                line->assembled_instruction.opcode = program->builtin_CJMP_FORWARD_IF->code;
-                            } else if(line->opcode == program->builtin_JMP_ERR){
-                                line->assembled_instruction.opcode = program->builtin_CJMP_FORWARD_ERR->code;
-                            } else {
-                                ERR_fmt("failed to map jump for target label '%s'", line->jump_target);
-                            }
 
-                            line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) offset;
-                            line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
+                        long offset = compute_byte_offset(line, target_line);
+
+                        if(offset < 0){
+                            if(-offset > SRSVM_MAX_PTR){
+                                ERR_fmt("jump distance (%lu bytes) too large to fit in a WORD value", offset);
+                            } else {
+
+                                if(line->opcode == program->builtin_JMP){
+                                    line->assembled_instruction.opcode = program->builtin_CJMP_BACK->code;
+                                } else if(line->opcode == program->builtin_JMP_IF){
+                                    line->assembled_instruction.opcode = program->builtin_CJMP_BACK_IF->code;
+                                } else if(line->opcode == program->builtin_JMP_ERR){
+                                    line->assembled_instruction.opcode = program->builtin_CJMP_BACK_ERR->code;
+                                } else {
+                                    ERR_fmt("failed to map jump for target label '%s'", line->jump_target);
+                                }
+
+                                line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) -offset;
+                                line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
+                            }
+                        } else {
+                            if(offset > SRSVM_MAX_PTR){
+                                ERR_fmt("jump distance (%lu bytes) too large to fit in a WORD value", offset);
+                            } else {
+                                if(line->opcode == program->builtin_JMP){
+                                    line->assembled_instruction.opcode = program->builtin_CJMP_FORWARD->code;
+                                } else if(line->opcode == program->builtin_JMP_IF){
+                                    line->assembled_instruction.opcode = program->builtin_CJMP_FORWARD_IF->code;
+                                } else if(line->opcode == program->builtin_JMP_ERR){
+                                    line->assembled_instruction.opcode = program->builtin_CJMP_FORWARD_ERR->code;
+                                } else {
+                                    ERR_fmt("failed to map jump for target label '%s'", line->jump_target);
+                                }
+
+                                line->assembled_instruction.argv[line->jump_target_arg_index].value = (srsvm_word) offset;
+                                line->assembled_instruction.argv[line->jump_target_arg_index].type = SRSVM_ARG_TYPE_WORD;
+                            }
                         }
                     }
                 }
@@ -1629,86 +1638,86 @@ srsvm_program *srsvm_asm_emit(srsvm_assembly_program *program, const srsvm_ptr e
 
             size_t padding_nops;
 
-	    for(line = program->lines; line != NULL; line = line->next){
-		    for(int i = 0; i < line->pre_count; i++){
-			    dbg_printf("emitting pre line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->pre[i].opcode), PRINTF_WORD_PARAM(line->pre[i].argc));
-			    for(srsvm_word j = 0; j < line->pre[i].argc; j++){
-				    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(j), line->pre->argv[j].type, PRINTF_WORD_PARAM(line->pre->argv[j].value));
-			    }
+            for(line = program->lines; line != NULL; line = line->next){
+                for(int i = 0; i < line->pre_count; i++){
+                    dbg_printf("emitting pre line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->pre[i].opcode), PRINTF_WORD_PARAM(line->pre[i].argc));
+                    for(srsvm_word j = 0; j < line->pre[i].argc; j++){
+                        dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(j), line->pre->argv[j].type, PRINTF_WORD_PARAM(line->pre->argv[j].value));
+                    }
 
-			    * (srsvm_word *) ptr = (OPCODE_MK_ARGC(line->pre[i].argc) | line->pre[i].opcode);
-			    ptr += sizeof(srsvm_word);
+                    * (srsvm_word *) ptr = (OPCODE_MK_ARGC(line->pre[i].argc) | line->pre[i].opcode);
+                    ptr += sizeof(srsvm_word);
 
-			    memcpy(ptr, &line->pre[i].argv, line->pre[i].argc * sizeof(srsvm_arg));
-			    ptr += line->pre[i].argc * sizeof(srsvm_arg);
+                    memcpy(ptr, &line->pre[i].argv, line->pre[i].argc * sizeof(srsvm_arg));
+                    ptr += line->pre[i].argc * sizeof(srsvm_arg);
 
-			    if(word_alignment > 0){
-				    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->pre[i].argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
+                    if(word_alignment > 0){
+                        padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->pre[i].argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
 
-				    for(int j = 0; j < padding_nops; j++){
-					    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
-					    ptr += sizeof(srsvm_word);
-				    }
-			    }
-		    }
+                        for(int j = 0; j < padding_nops; j++){
+                            * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
+                            ptr += sizeof(srsvm_word);
+                        }
+                    }
+                }
 
-		    dbg_printf("emitting line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->assembled_instruction.opcode), PRINTF_WORD_PARAM(line->assembled_instruction.argc));
-		    for(srsvm_word i = 0; i < line->assembled_instruction.argc; i++){
-			    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(i), line->assembled_instruction.argv[i].type, PRINTF_WORD_PARAM(line->assembled_instruction.argv[i].value));
-		    }
+                dbg_printf("emitting line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->assembled_instruction.opcode), PRINTF_WORD_PARAM(line->assembled_instruction.argc));
+                for(srsvm_word i = 0; i < line->assembled_instruction.argc; i++){
+                    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(i), line->assembled_instruction.argv[i].type, PRINTF_WORD_PARAM(line->assembled_instruction.argv[i].value));
+                }
 
-		    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(line->assembled_instruction.argc) | line->assembled_instruction.opcode);
-		    ptr += sizeof(srsvm_word);
-		    memcpy(ptr, &line->assembled_instruction.argv, line->assembled_instruction.argc * sizeof(srsvm_arg));
-		    ptr += line->assembled_instruction.argc * sizeof(srsvm_arg);
+                * (srsvm_word*) ptr = (OPCODE_MK_ARGC(line->assembled_instruction.argc) | line->assembled_instruction.opcode);
+                ptr += sizeof(srsvm_word);
+                memcpy(ptr, &line->assembled_instruction.argv, line->assembled_instruction.argc * sizeof(srsvm_arg));
+                ptr += line->assembled_instruction.argc * sizeof(srsvm_arg);
 
-		    if(word_alignment > 0){
-			    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->assembled_instruction.argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
-			    for(int j = 0; j < padding_nops; j++){
-				    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
-				    ptr += sizeof(srsvm_word);
-			    }
-		    }
+                if(word_alignment > 0){
+                    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->assembled_instruction.argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
+                    for(int j = 0; j < padding_nops; j++){
+                        * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
+                        ptr += sizeof(srsvm_word);
+                    }
+                }
 
-		    for(int i = 0; i < line->post_count; i++){
-			    dbg_printf("emitting post line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->post[i].opcode), PRINTF_WORD_PARAM(line->post[i].argc));
-			    for(srsvm_word j = 0; j < line->post[i].argc; j++){
-				    dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(j), line->post->argv[j].type, PRINTF_WORD_PARAM(line->post->argv[j].value));
-			    }
-			    
-			    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(line->post[i].argc) | line->post[i].opcode);
-			    ptr += sizeof(srsvm_word);
-			    memcpy(ptr, &line->post[i].argv, line->post[i].argc * sizeof(srsvm_arg));
-			    ptr += line->pre[i].argc * sizeof(srsvm_arg);
+                for(int i = 0; i < line->post_count; i++){
+                    dbg_printf("emitting post line: opcode: " PRINT_WORD_HEX ", argc: " PRINT_WORD, PRINTF_WORD_PARAM(line->post[i].opcode), PRINTF_WORD_PARAM(line->post[i].argc));
+                    for(srsvm_word j = 0; j < line->post[i].argc; j++){
+                        dbg_printf("  argv[" PRINT_WORD "] = { type: %u, value: " PRINT_WORD " }", PRINTF_WORD_PARAM(j), line->post->argv[j].type, PRINTF_WORD_PARAM(line->post->argv[j].value));
+                    }
 
-			    if(word_alignment > 0){
-				    padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->post[i].argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
+                    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(line->post[i].argc) | line->post[i].opcode);
+                    ptr += sizeof(srsvm_word);
+                    memcpy(ptr, &line->post[i].argv, line->post[i].argc * sizeof(srsvm_arg));
+                    ptr += line->pre[i].argc * sizeof(srsvm_arg);
 
-				    for(int j = 0; j < padding_nops; j++){
-					    * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
-					    ptr += sizeof(srsvm_word);
-				    }
-			    }
-		    }
-	    }
-	}
-	program_memory->readable = true;
-	program_memory->executable = true;
-	program_memory->locked = true;
-	out_program->num_lmem_segments = 1;
-    
+                    if(word_alignment > 0){
+                        padding_nops = ((word_alignment - ((sizeof(srsvm_word) + line->post[i].argc * sizeof(srsvm_arg)) % word_alignment)) % word_alignment);
 
-	if(mod_cache != NULL){
-		srsvm_string_map_walk(mod_cache->map, unload_modules, NULL);
-		srsvm_lru_cache_free(mod_cache, false);
-	}
-	}
+                        for(int j = 0; j < padding_nops; j++){
+                            * (srsvm_word*) ptr = (OPCODE_MK_ARGC(0) | program->builtin_NOP->code);
+                            ptr += sizeof(srsvm_word);
+                        }
+                    }
+                }
+            }
+        }
+        program_memory->readable = true;
+        program_memory->executable = true;
+        program_memory->locked = true;
+        out_program->num_lmem_segments = 1;
+
+
+        if(mod_cache != NULL){
+            srsvm_string_map_walk(mod_cache->map, unload_modules, NULL);
+            srsvm_lru_cache_free(mod_cache, false);
+        }
+    }
 
     return out_program;
 
 error_cleanup:
     if(out_program != NULL){
-	    srsvm_program_free(out_program);
+        srsvm_program_free(out_program);
     }
 
     return NULL;

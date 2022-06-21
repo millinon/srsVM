@@ -565,7 +565,7 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 		srsvm_register *src_reg = register_lookup(vm, thread, &argv[0]);
 
 		if(src_reg != NULL){
-			printf(PRINT_WORD "\n", PRINTF_WORD_PARAM(src_reg->value.word));
+			printf(PRINT_WORD, PRINTF_WORD_PARAM(src_reg->value.word));
 		}
 	}
 
@@ -830,59 +830,254 @@ void builtin_MOD_OP(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, c
 		}
 	}
 
-	static bool register_opcode(srsvm_opcode_map *map, srsvm_word code, const char* name, const unsigned short argc_min, const unsigned short argc_max, srsvm_opcode_func* func)
-	{
-		bool success = false;
+    void builtin_THREAD_JOIN(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *thread_reg = NULL;
+        srsvm_register *dest_reg = NULL;
 
-		if((code & OPCODE_ARGC_MASK) != 0){
-			dbg_printf("Error: opcode " PRINT_WORD_HEX " & OPCODE_ARGC_MASK != 0; opcode will not be called.", PRINTF_WORD_PARAM(code));
-		} else if(argc_min > MAX_INSTRUCTION_ARGS){
-			dbg_printf("Error: opcode " PRINT_WORD_HEX " has min argc %hu, > %u", PRINTF_WORD_PARAM(code), argc_min, MAX_INSTRUCTION_ARGS);
-		} else if(argc_max > MAX_INSTRUCTION_ARGS){
-			dbg_printf("Error: opcode " PRINT_WORD_HEX " has max argc %hu, > %u", PRINTF_WORD_PARAM(code), argc_max, MAX_INSTRUCTION_ARGS);
-		} else if(strlen(name) > 0 && opcode_lookup_by_name(map, name) != NULL){
-			dbg_printf("Error: opcode " PRINT_WORD_HEX " has duplicate mnemonic %s", PRINTF_WORD_PARAM(code), name);
-		} else if(opcode_lookup_by_code(map, code) != NULL){
-			dbg_printf("Error: opcode " PRINT_WORD_HEX " has duplicate code number", PRINTF_WORD_PARAM(code));
-		} else {
-			srsvm_opcode *op;
+        if(argc == 1){
+            thread_reg = register_lookup(vm, thread, &argv[0]);
+        } else if(argc == 2){
+            dest_reg = register_lookup(vm, thread, &argv[0]);
+            thread_reg = register_lookup(vm, thread, &argv[1]);
+        }
 
-			if((op = malloc(sizeof(srsvm_opcode))) == NULL){
+        if(thread_reg == NULL){
+			thread_set_fault(thread, "Attempt to join invalid thread");
+        } else if(dest_reg == NULL || !fault_on_not_writable(thread, dest_reg)){
+            if(thread_reg->value.hnd == NULL){
+                thread_set_fault(thread, "Attempt to join invalid thread");
+            } else if(thread_reg->value.hnd->type != SRSVM_HANDLE_TYPE_THREAD){
+                thread_set_fault(thread, "Attempt to join invalid thread");
+            } else {
+                srsvm_thread_exit_info *info = NULL;
+                
+                if(! srsvm_thread_join(thread_reg->value.hnd->thread, &info)){
+                    thread_set_fault(thread, "Failed to join thread");
+                } else if(dest_reg != NULL){
+                    if(info->has_fault){
+                        set_register_error_bit(dest_reg, "joined thread: %s", info->fault_str);   
+                    } else {
+                        load_ptr(dest_reg, info->ret, 0);
+                    }
 
-			} else {
+                    free(info);
+                }
+            }
+        }
+    }
 
-				op->code = code;
-				memset(op->name, 0, sizeof(op->name));
-				if(strlen(name) > 0){
-					srsvm_strncpy(op->name, name, sizeof(op->name) - 1);
-				}
-				op->argc_min = argc_min;
-				op->argc_max = argc_max;
-				op->func = func;
+    void builtin_THREAD_START(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *dest_reg = NULL;
+        //srsvm_register *start_addr_reg = NULL;
+        srsvm_register *start_arg_reg = NULL;
+	
+        srsvm_word addr_idx;
 
-				if(! opcode_map_insert(map, op)){
+        if(argc == 1){
+            addr_idx = 0;
+        } else if(argc == 2){
+            dest_reg = register_lookup(vm, thread, &argv[0]);
+            addr_idx = 1;
+        } else if(argc == 3){
+            dest_reg = register_lookup(vm, thread, &argv[0]);
+            addr_idx = 1;
+            start_arg_reg = register_lookup(vm, thread, &argv[2]);
+        }
 
-				} else {
-					success = true;
-				}
-			}
-		}
+        if(require_arg_type(vm, thread, &argv[addr_idx], SRSVM_ARG_TYPE_WORD)){
 
-		return success;
-	}
+            srsvm_ptr start_addr = argv[addr_idx].value;
 
-	bool load_builtin_opcodes(srsvm_opcode_map *map)
-	{
-		bool success = true;
+            srsvm_ptr start_arg = SRSVM_NULL_PTR;
+
+            if(start_arg_reg != NULL){
+                start_arg = start_arg_reg->value.ptr;
+            }
+
+            if(dest_reg == NULL || !fault_on_not_writable(thread, dest_reg)){
+
+                srsvm_thread *thread = srsvm_vm_alloc_thread(vm, start_addr, start_arg);
+
+                if(thread != NULL){
+                    if(! srsvm_vm_start_thread(vm, thread->id)){
+                        thread_set_fault(thread, "Failed to start VM thread");
+                    } else {
+                        if(dest_reg != NULL){
+                            srsvm_handle *hnd = srsvm_handle_alloc(SRSVM_HANDLE_TYPE_THREAD);
+
+                            if(hnd != NULL){
+                                hnd->thread = thread;
+                                load_handle(vm, dest_reg, hnd);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void builtin_THREAD_ID(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *dest_reg = register_lookup(vm, thread, &argv[0]);
+
+        if(dest_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
+            load_word(dest_reg, thread->id, 0);
+        }
+    }
+
+    void builtin_THREAD_ARG(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *dest_reg = register_lookup(vm, thread, &argv[0]);
+
+        if(dest_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
+            load_ptr(dest_reg, thread->arg, 0);
+        }
+    }
+
+    void builtin_THREAD_EXIT(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_ptr ret_addr = SRSVM_NULL_PTR;
+
+        if(argc == 1){
+            srsvm_register *ret_addr_reg = register_lookup(vm, thread, &argv[0]);
+
+            ret_addr = ret_addr_reg->value.ptr;
+        }
+
+        srsvm_thread_exit_info *info = malloc(sizeof(srsvm_thread_exit_info));
+
+        if(info != NULL){
+            info->has_fault = false;
+            info->fault_str = NULL;
+
+            info->ret = ret_addr;
+        }
+
+        srsvm_vm_thread_exit(vm, thread, info);
+    }
+
+    void builtin_MUTEX_INIT(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *dest_reg = register_lookup(vm, thread, &argv[0]);
+
+        if(dest_reg != NULL && !fault_on_not_writable(thread, dest_reg)){
+            srsvm_handle *hnd = srsvm_handle_alloc(SRSVM_HANDLE_TYPE_MUTEX);
+
+            if(! srsvm_lock_initialize(&hnd->mutex)){
+                hnd->has_error = true;
+                hnd->is_open = false;
+
+                set_register_error_bit(dest_reg, "Failed to initialize mutex");
+            }
+
+            load_handle(vm, dest_reg, hnd);
+        }
+
+    }
+
+    void builtin_MUTEX_LOCK(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *mut_reg = register_lookup(vm, thread, &argv[0]);
+
+        if(mut_reg != NULL){
+            if(mut_reg->value.hnd->type != SRSVM_HANDLE_TYPE_MUTEX){
+                thread_set_fault(thread, "Attempted to lock a non-mutex handle");
+            } else {
+                srsvm_lock_acquire(&mut_reg->value.hnd->mutex);
+            }
+        }
+    }
+
+    void builtin_MUTEX_UNLOCK(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *mut_reg = register_lookup(vm, thread, &argv[0]);
+
+        if(mut_reg != NULL){
+            if(mut_reg->value.hnd->type != SRSVM_HANDLE_TYPE_MUTEX){
+                thread_set_fault(thread, "Attempted to lock a non-mutex handle");
+            } else {
+                srsvm_lock_release(&mut_reg->value.hnd->mutex);
+            }
+        }
+    }
+
+    void builtin_MUTEX_DESTROY(srsvm_vm *vm, srsvm_thread *thread, const srsvm_word argc, const srsvm_arg argv[])
+    {
+        srsvm_register *reg = register_lookup(vm, thread, &argv[0]);
+
+        if(reg != NULL && !fault_on_not_writable(thread, reg)){
+            if(reg->value.hnd->type != SRSVM_HANDLE_TYPE_MUTEX){
+                thread_set_fault(thread, "Attempted to destroy a non-mutex handle");
+            } else {
+                srsvm_lock_destroy(&reg->value.hnd->mutex);
+
+                reg->value.hnd->is_open = false;
+
+                clear_reg(reg);
+            }
+        }
+    }
+
+    static bool register_opcode(srsvm_opcode_map *map, srsvm_word code, const char* name, const unsigned short argc_min, const unsigned short argc_max, srsvm_opcode_func* func)
+    {
+        bool success = false;
+
+        srsvm_opcode *existing_opcode = NULL;
+
+        if((code & OPCODE_ARGC_MASK) != 0){
+            dbg_printf("Error: opcode " PRINT_WORD_HEX " & OPCODE_ARGC_MASK != 0; opcode will not be called.", PRINTF_WORD_PARAM(code));
+        } else if(argc_min > MAX_INSTRUCTION_ARGS){
+            dbg_printf("Error: opcode " PRINT_WORD_HEX " has min argc %hu, > %u", PRINTF_WORD_PARAM(code), argc_min, MAX_INSTRUCTION_ARGS);
+        } else if(argc_max > MAX_INSTRUCTION_ARGS){
+            dbg_printf("Error: opcode " PRINT_WORD_HEX " has max argc %hu, > %u", PRINTF_WORD_PARAM(code), argc_max, MAX_INSTRUCTION_ARGS);
+        } else if(strlen(name) > 0 && opcode_lookup_by_name(map, name) != NULL){
+            dbg_printf("Error: opcode " PRINT_WORD_HEX " has duplicate mnemonic %s", PRINTF_WORD_PARAM(code), name);
+        } else if((existing_opcode = opcode_lookup_by_code(map, code)) != NULL){
+            dbg_printf("Error: opcode " PRINT_WORD_HEX " has duplicate code number", PRINTF_WORD_PARAM(code));
+            dbg_printf("  existing opcode: %s", existing_opcode->name);
+        } else {
+            srsvm_opcode *op;
+
+            if((op = malloc(sizeof(srsvm_opcode))) == NULL){
+
+            } else {
+
+                op->code = code;
+                memset(op->name, 0, sizeof(op->name));
+                if(strlen(name) > 0){
+                    srsvm_strncpy(op->name, name, sizeof(op->name) - 1);
+                }
+                op->argc_min = argc_min;
+                op->argc_max = argc_max;
+                op->func = func;
+
+                if(! opcode_map_insert(map, op)){
+
+                } else {
+                    success = true;
+                }
+            }
+        }
+
+        return success;
+    }
+
+    bool load_builtin_opcodes(srsvm_opcode_map *map)
+    {
+        bool success = true;
 
 #define REGISTER_OPCODE(c,n,a_min,a_max) do { \
-	if(! register_opcode(map,c,#n,a_min,a_max,&builtin_##n)) { success = false; } \
+    if(! register_opcode(map,c,#n,a_min,a_max,&builtin_##n)) {  \
+        dbg_printf("failed to load opcode %s", #n); \
+        success = false; } \
 } while(0)
 
 #include "srsvm/opcodes-builtin.h"
 
 #undef REGISTER_OPCODE
 
-		return success;
-		}
+        return success;
+        }
 

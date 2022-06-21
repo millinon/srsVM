@@ -29,15 +29,15 @@
 bool srsvm_lock_initialize(srsvm_lock *lock);
 void srsvm_lock_destroy(srsvm_lock *lock);
 
-bool srsvm_lock_acquire(srsvm_lock *lock, const long ms_timeout);
+bool srsvm_lock_acquire(srsvm_lock *lock);
 void srsvm_lock_release(srsvm_lock *lock);
 
 #if defined(WORD_SIZE)
 typedef void (*native_thread_proc)(void*);
 
 bool srsvm_thread_start(srsvm_thread *thread, native_thread_proc proc, void* arg);
-void srsvm_thread_exit(srsvm_thread *thread);
-bool srsvm_thread_join(srsvm_thread *thread);
+void srsvm_thread_exit(srsvm_thread_exit_info *info);
+bool srsvm_thread_join(srsvm_thread *thread, srsvm_thread_exit_info **info);
 
 void srsvm_sleep(const srsvm_word ms_timeout);
 

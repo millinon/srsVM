@@ -14,7 +14,7 @@
 
 #define srsvm_strncpy(dst,src,len) strncpy_s(dst,sizeof(dst),src,len)
 
-typedef HANDLE srsvm_lock;
+typedef CRITICAL_SECTION srsvm_lock;
 
 typedef HANDLE srsvm_thread_native_handle;
 

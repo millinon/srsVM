@@ -9,25 +9,19 @@ debug: CFLAGS += -DDEBUG -g
 debug:
 	$(MAKE) -C wrap debug
 	$(MAKE) WORD_SIZE=16 -C arch debug
-	$(MAKE) WORD_SIZE=16 -C mod debug
 	$(MAKE) WORD_SIZE=32 -C arch debug
-	$(MAKE) WORD_SIZE=32 -C mod debug
 	$(MAKE) WORD_SIZE=64 -C arch debug
-	$(MAKE) WORD_SIZE=64 -C mod debug
 	$(MAKE) WORD_SIZE=128 -C arch debug
-	$(MAKE) WORD_SIZE=128 -C mod debug
+	$(MAKE) -C mod debug
 
 release: CFLAGS += -DNEDBUG -O2
 release: 
 	$(MAKE) -C wrap release
 	$(MAKE) WORD_SIZE=16 -C arch release
-	$(MAKE) WORD_SIZE=16 -C mod release
 	$(MAKE) WORD_SIZE=32 -C arch release
-	$(MAKE) WORD_SIZE=32 -C mod release
 	$(MAKE) WORD_SIZE=64 -C arch release
-	$(MAKE) WORD_SIZE=64 -C mod release
 	$(MAKE) WORD_SIZE=128 -C arch release
-	$(MAKE) WORD_SIZE=128 -C mod release
+	$(MAKE) -C mod release
 
 clean:
 	$(MAKE) -C wrap clean

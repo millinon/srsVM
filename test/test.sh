@@ -58,6 +58,10 @@ should_fail(){
 	local filename="$1"
 	local args="$2"
 
+    if ! [ -z ${TEST_DEBUG+x} ]; then
+        echo "install/bin/srsvm_run -ws "$WORD_SIZE" "$filename" -- $args >/dev/null 2>&1"
+    fi
+
 	if install/bin/srsvm_run -ws "$WORD_SIZE" "$filename" -- $args >/dev/null 2>&1; then
 		test_fail "$filename"
 	else
@@ -68,6 +72,10 @@ should_fail(){
 should_succeed(){
 	local filename="$1"
 	local args="$2"
+    
+    if ! [ -z ${TEST_DEBUG+x} ]; then
+        echo "install/bin/srsvm_run -ws "$WORD_SIZE" "$filename" -- $args >/dev/null 2>&1"
+    fi
 
 	if install/bin/srsvm_run -ws "$WORD_SIZE" "$filename" -- $args >/dev/null 2>&1; then
 		test_pass "$filename"

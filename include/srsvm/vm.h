@@ -55,8 +55,8 @@ srsvm_register *srsvm_vm_register_alloc(srsvm_vm *vm, const char* name, const sr
 
 bool srsvm_vm_execute_instruction(srsvm_vm *vm, srsvm_thread *thread, const srsvm_instruction *instruction);
 
-srsvm_thread *srsvm_vm_alloc_thread(srsvm_vm *vm, const srsvm_ptr start_addr);
-
+srsvm_thread *srsvm_vm_alloc_thread(srsvm_vm *vm, const srsvm_ptr start_addr, const srsvm_ptr start_arg);
+void srsvm_vm_thread_exit(srsvm_vm *vm, srsvm_thread *thread, srsvm_thread_exit_info *info);
 bool srsvm_vm_start_thread(srsvm_vm *vm, const srsvm_word thread_id);
 bool srsvm_vm_join_thread(srsvm_vm *vm, const srsvm_word thread_id);
 

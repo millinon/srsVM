@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "srsvm/debug.h"
+#include "srsvm/handle.h"
 #include "srsvm/register.h"
 
 srsvm_register *srsvm_register_alloc(const char* name, const srsvm_word index)
@@ -36,6 +37,10 @@ void srsvm_register_free(srsvm_register *reg)
     if(reg != NULL){
         if(reg->value.str != NULL){
             free(reg->value.str);
+        }
+
+        if(reg->value.hnd != NULL){
+            srsvm_handle_free(reg->value.hnd);
         }
 
         free(reg);

@@ -136,8 +136,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\lib\constant.c" />
     <ClCompile Include="..\lib\impl\windows.c" />
+    <ClCompile Include="..\lib\constant.c" />
+    <ClCompile Include="..\lib\handle.c" />
     <ClCompile Include="..\lib\map.c" />
     <ClCompile Include="..\lib\mmu.c" />
     <ClCompile Include="..\lib\module.c" />

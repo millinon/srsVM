@@ -944,6 +944,10 @@ bool serialize_constants(FILE *stream, const srsvm_program *program)
                     uncompressed_size += c->const_val.str_len;
 
                     break;
+
+                    default:
+                        continue;
+                    break;
                 }
 
                 c = c->next;

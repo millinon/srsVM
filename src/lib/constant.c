@@ -4,8 +4,12 @@
 #include "srsvm/debug.h"
 #include "srsvm/opcode-helpers.h"
 
-srsvm_constant_value *srsvm_const_alloc(srsvm_value_type type)
+srsvm_constant_value *srsvm_const_alloc(const srsvm_value_type type)
 {
+    if(type == SRSVM_TYPE_HANDLE){
+        return NULL;
+    }
+
     srsvm_constant_value *c = malloc(sizeof(srsvm_constant_value));
 
     if(c != NULL){

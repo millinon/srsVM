@@ -38,6 +38,14 @@ typedef struct
 
 typedef void (*srsvm_thread_fault_handler)(srsvm_vm*, srsvm_thread*);
 
+struct srsvm_thread_exit_info
+{
+    bool has_fault;
+    const char* fault_str;
+
+    srsvm_ptr ret;
+};
+
 struct srsvm_thread
 {
     srsvm_word id;
@@ -56,13 +64,15 @@ struct srsvm_thread
     //const char* fault_str;
     char fault_str[1024];
 
+    srsvm_ptr arg;
+
     srsvm_thread_fault_handler fault_handler;
     srsvm_ptr fault_handler_addr;
 
     srsvm_thread_native_handle native_handle;
 };
 
-srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_addr);
+srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_addr, srsvm_ptr start_arg);
 void srsvm_thread_free(srsvm_vm *vm, srsvm_thread* thread);
 
 bool srsvm_push(srsvm_vm *vm, srsvm_thread *thread, const srsvm_register *reg);

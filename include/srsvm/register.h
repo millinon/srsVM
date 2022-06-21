@@ -73,6 +73,9 @@ typedef struct
         int8_t i8[16];
 #endif
     };
+
+    srsvm_handle *hnd;
+
     char* str;
     size_t str_len;
 } srsvm_register_contents;

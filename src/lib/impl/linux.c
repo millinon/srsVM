@@ -40,19 +40,11 @@ void srsvm_lock_destroy(srsvm_lock *lock)
     pthread_mutex_destroy(lock);
 }
 
-bool srsvm_lock_acquire(srsvm_lock *lock, const long ms_timeout)
+bool srsvm_lock_acquire(srsvm_lock *lock)
 {
     bool success = false;
-
-    if(ms_timeout > 0){
-        struct timespec timeout;
-        timeout.tv_sec = ms_timeout / 1000;
-        timeout.tv_nsec = (ms_timeout % 1000) * 1000000;
-
-        success = pthread_mutex_timedlock(lock, &timeout) == 0;
-    } else {
-        success = pthread_mutex_lock(lock) == 0;
-    }
+    
+    success = pthread_mutex_lock(lock) == 0;
 
     return success;
 }
@@ -99,16 +91,16 @@ bool srsvm_thread_start(srsvm_thread *thread, native_thread_proc proc, void *arg
     return success;
 }
 
-void srsvm_thread_exit(srsvm_thread *thread)
+void srsvm_thread_exit(srsvm_thread_exit_info *info)
 {
-    pthread_exit(NULL);
+    pthread_exit(info);
 }
 
-bool srsvm_thread_join(srsvm_thread *thread)
+bool srsvm_thread_join(srsvm_thread *thread, srsvm_thread_exit_info ** ret)
 {
     bool success = false;
 
-    if(pthread_join(thread->native_handle, NULL) == 0){
+    if(pthread_join(thread->native_handle, (void**)ret) == 0){
         success = true;
     }
 

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "srsvm/handle.h"
 #include "srsvm/opcode.h"
 #include "srsvm/mmu.h"
 #include "srsvm/register.h"
@@ -129,7 +130,13 @@ static inline bool clear_reg(srsvm_register *reg)
 
 	if(reg->value.str != NULL){
 		free(reg->value.str);
+        reg->value.str = NULL;
 	}
+
+    if(reg->value.hnd != NULL){
+        srsvm_handle_free(reg->value.hnd);
+        reg->value.hnd = NULL;
+    }
 
 	memset(&reg->value, 0, sizeof(reg->value));
 	reg->value.str = NULL;
@@ -158,6 +165,7 @@ static inline bool clear_reg(srsvm_register *reg)
 { \
 	ENSURE_WRITABLE(reg); \
 	ENSURE_SPACE(type,field); \
+    clear_reg(reg); \
 	((type*)&reg->value.field)[offset] = value; \
 	return true; \
 }
@@ -167,6 +175,7 @@ static inline bool clear_reg(srsvm_register *reg)
 { \
 	ENSURE_WRITABLE(reg); \
 	ENSURE_SPACE(type, field); \
+    clear_reg(reg); \
 	return srsvm_mmu_load(vm->mem_root, ptr, sizeof(type), &reg->value.field + offset); \
 }
 
@@ -217,10 +226,8 @@ MK_HELPERS(int8_t, i8);
 static inline bool load_str(srsvm_register *reg, const char* value, size_t len)
 {
 	ENSURE_WRITABLE(reg);
-
-	if(reg->value.str != NULL){
-		free(reg->value.str);
-	}
+    
+    clear_reg(reg);
 
 	if((reg->value.str = malloc((len + 1) * sizeof(char))) == NULL){
 		reg->value.str = NULL;
@@ -240,9 +247,26 @@ static inline bool mem_store_str(const srsvm_vm *vm, srsvm_register *reg, const 
 	return srsvm_mmu_store(vm->mem_root, ptr, (reg->value.str_len + 1) * sizeof(char), &reg->value.str);
 }
 
+static inline bool load_handle(const srsvm_vm *vm, srsvm_register *reg, srsvm_handle *hnd)
+{
+    ENSURE_WRITABLE(reg);
+
+    clear_reg(reg);
+
+    if(hnd != NULL){
+        reg->value.hnd = hnd;
+        return true;
+    } else return false;
+}
+
+
 static inline bool mem_load_str(const srsvm_vm *vm, srsvm_register *reg, const srsvm_ptr ptr, const srsvm_word offset)
 {
-	srsvm_memory_segment *seg = srsvm_mmu_locate(vm->mem_root, ptr);
+	ENSURE_WRITABLE(reg);
+    
+    clear_reg(reg);
+	
+    srsvm_memory_segment *seg = srsvm_mmu_locate(vm->mem_root, ptr);
 
 	if(seg != NULL){
 		for(size_t str_len = 0; str_len < seg->literal_sz - (ptr - seg->literal_start); str_len++){

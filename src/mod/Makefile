@@ -13,6 +13,7 @@ release:
 clean:
 	$(MAKE) -C math clean
 	$(MAKE) -C conversion clean
+	rm -rf output
 
 install:
 	$(MAKE) -C math install

@@ -129,7 +129,7 @@ typedef struct
     srsvm_opcode *builtin_CJMP_BACK;
     srsvm_opcode *builtin_CJMP_BACK_IF;
     srsvm_opcode *builtin_CJMP_BACK_ERR;
-
+    srsvm_opcode *builtin_THREAD_START;
 
 } srsvm_assembly_program;
 

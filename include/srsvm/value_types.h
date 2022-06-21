@@ -6,6 +6,8 @@
 
 typedef enum
 {
+    SRSVM_TYPE_HANDLE = -1,
+
     SRSVM_TYPE_WORD = 0,
 
 	SRSVM_TYPE_PTR = 1,

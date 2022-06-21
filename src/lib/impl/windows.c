@@ -20,28 +20,28 @@ bool srsvm_lock_initialize(srsvm_lock *lock)
 {
     bool success = false;
 
-	success = (*lock = CreateMutex(NULL, FALSE, NULL)) != NULL;
+    InitializeCriticalSection(lock);
+
+	success = true;
 
     return success;
 }
 
 void srsvm_lock_destroy(srsvm_lock *lock)
 {
-	CloseHandle(*lock);
+    DeleteCriticalSection(lock);
 }
 
-bool srsvm_lock_acquire(srsvm_lock *lock, const long ms_timeout)
+bool srsvm_lock_acquire(srsvm_lock *lock)
 {
-	DWORD timeout = ms_timeout == 0 ? INFINITE : ms_timeout;
-
-	DWORD wait_result = WaitForSingleObject(*lock, timeout);
-
-	return (wait_result == WAIT_ABANDONED || wait_result == WAIT_OBJECT_0);	
+    EnterCriticalSection(lock);
+	
+    return true;
 }
 
 void srsvm_lock_release(srsvm_lock *lock)
 {
-	ReleaseMutex(*lock);
+    LeaveCriticalSection(lock);
 }
 
 #ifdef WORD_SIZE

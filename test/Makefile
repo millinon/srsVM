@@ -1,7 +1,7 @@
 .PHONY: pre-test test clean
 
 pre-test:
-	$(MAKE) -C .. release install "PREFIX=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/install"
+	$(MAKE) -C .. clean release install "PREFIX=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/install"
 
 test: pre-test
 	WORD_SIZE=16 ./test.sh

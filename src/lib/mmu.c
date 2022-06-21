@@ -26,7 +26,7 @@ srsvm_memory_segment* srsvm_mmu_locate(srsvm_memory_segment *root_segment, const
 
     srsvm_memory_segment *segment = NULL;
 
-    srsvm_lock_acquire(&root_segment->lock, 0);
+    srsvm_lock_acquire(&root_segment->lock);
 
     dbg_printf("  segment literal bounds: [" PRINT_WORD_HEX ", " PRINT_WORD_HEX ")", PRINTF_WORD_PARAM(root_segment->literal_start), PRINTF_WORD_PARAM(root_segment->literal_start + root_segment->literal_sz));
     
@@ -91,7 +91,7 @@ bool srsvm_mmu_store(srsvm_memory_segment *root_segment, const srsvm_ptr address
 
     dbg_puts("segment resolved, storing...");
 
-    srsvm_lock_acquire(&segment->lock, 0);
+    srsvm_lock_acquire(&segment->lock);
 
     char* cpy_dest = (((char*)segment->literal_memory) + (uintptr_t)(address - segment->literal_start));
     char* cpy_src = src; 
@@ -146,7 +146,7 @@ bool srsvm_mmu_load(srsvm_memory_segment *root_segment, const srsvm_ptr address,
     
     dbg_puts("segment resolved, loading...");
 
-    srsvm_lock_acquire(&segment->lock, 0);
+    srsvm_lock_acquire(&segment->lock);
 
     char *cpy_dest = dest;
     char *cpy_src = ((char*)segment->literal_memory) + (uintptr_t)(address - segment->literal_start);
@@ -187,7 +187,7 @@ static void lock_all(srsvm_memory_segment *segment)
         lock_all(segment->parent);
     }
 
-    srsvm_lock_acquire(&segment->lock, 0);
+    srsvm_lock_acquire(&segment->lock);
 }
 
 static void release_all(srsvm_memory_segment *segment)

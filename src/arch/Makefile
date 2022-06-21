@@ -36,6 +36,7 @@ srsvm_$(WORD_SIZE): srsvm.c \
 	obj/$(WORD_SIZE)/constant.o \
 	obj/$(WORD_SIZE)/program.o \
 	obj/$(WORD_SIZE)/thread.o \
+	obj/$(WORD_SIZE)/handle.o \
 	obj/$(WORD_SIZE)/impl/linux.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
@@ -52,6 +53,7 @@ srsvm_as_$(WORD_SIZE): srsvm_as.c \
 	obj/$(WORD_SIZE)/constant.o \
 	obj/$(WORD_SIZE)/program.o \
 	obj/$(WORD_SIZE)/thread.o \
+	obj/$(WORD_SIZE)/handle.o \
 	obj/$(WORD_SIZE)/impl/linux.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
@@ -68,6 +70,7 @@ srsvm_run_$(WORD_SIZE): srsvm_run.c \
 	obj/$(WORD_SIZE)/constant.o \
 	obj/$(WORD_SIZE)/program.o \
 	obj/$(WORD_SIZE)/thread.o \
+	obj/$(WORD_SIZE)/handle.o \
 	obj/$(WORD_SIZE)/impl/linux.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 

@@ -5,7 +5,7 @@
 #include "srsvm/thread.h"
 #include "srsvm/vm.h"
 
-srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_addr)
+srsvm_thread *srsvm_thread_alloc(srsvm_vm *vm, srsvm_word id, srsvm_ptr start_addr, srsvm_ptr start_arg)
 {
     srsvm_thread *thread;
 
